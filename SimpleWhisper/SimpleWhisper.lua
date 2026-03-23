@@ -925,10 +925,11 @@ local function CreateMainFrame()
             local font, size, flags = fs:GetFont()
             fs:SetFont(font, size - 1, flags)
         end
+        btn:SetWidth(math.max(24, btn:GetTextWidth() + 16))
     end
 
     local timeBtn = CreateFrame("Button", nil, optBar, "UIPanelButtonTemplate")
-    timeBtn:SetSize(40, 20)
+    timeBtn:SetHeight(20)
     timeBtn:SetPoint("LEFT", 0, 0)
     timeBtn:SetText(L.BTN_TIME)
     ShrinkButtonFont(timeBtn)
@@ -967,7 +968,7 @@ local function CreateMainFrame()
     }
 
     local deleteBtn = CreateFrame("Button", nil, optBar, "UIPanelButtonTemplate")
-    deleteBtn:SetSize(40, 20)
+    deleteBtn:SetHeight(20)
     deleteBtn:SetText(L.BTN_DELETE)
     ShrinkButtonFont(deleteBtn)
     deleteBtn:Disable()
@@ -980,7 +981,7 @@ local function CreateMainFrame()
 
     -- 닫기 버튼
     local closeBtn = CreateFrame("Button", nil, optBar, "UIPanelButtonTemplate")
-    closeBtn:SetSize(24, 20)
+    closeBtn:SetHeight(20)
     closeBtn:SetPoint("RIGHT", 0, 0)
     closeBtn:SetText("X")
     ShrinkButtonFont(closeBtn)
@@ -988,7 +989,7 @@ local function CreateMainFrame()
 
     -- 옵션 버튼
     local optBtn = CreateFrame("Button", nil, optBar, "UIPanelButtonTemplate")
-    optBtn:SetSize(40, 20)
+    optBtn:SetHeight(20)
     optBtn:SetPoint("RIGHT", closeBtn, "LEFT", -2, 0)
     optBtn:SetText(L.BTN_OPTIONS)
     ShrinkButtonFont(optBtn)
@@ -1262,20 +1263,20 @@ local function CreateMainFrame()
     }
 
     local deleteAllBtn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
-    deleteAllBtn:SetSize(80, 20)
+    deleteAllBtn:SetHeight(20)
     deleteAllBtn:SetPoint("TOP", resetDivider, "BOTTOM", 0, -6)
-    ShrinkButtonFont(deleteAllBtn)
     deleteAllBtn:SetText(L.BTN_DELETE_ALL)
+    ShrinkButtonFont(deleteAllBtn)
     deleteAllBtn:SetScript("OnClick", function()
         StaticPopup_Show("SIMPLEWHISPER_DELETE_ALL")
     end)
 
     -- 초기화 버튼
     local resetBtn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
-    resetBtn:SetSize(80, 20)
+    resetBtn:SetHeight(20)
     resetBtn:SetPoint("TOP", deleteAllBtn, "BOTTOM", 0, -4)
-    ShrinkButtonFont(resetBtn)
     resetBtn:SetText(L.BTN_RESET)
+    ShrinkButtonFont(resetBtn)
 
     StaticPopupDialogs["SIMPLEWHISPER_RESET"] = {
         text = L.CONFIRM_RESET,
@@ -1404,7 +1405,7 @@ local function CreateMainFrame()
     copyBox:SetScript("OnEscapePressed", function() copyFrame:Hide() end)
 
     local inviteBtn = CreateFrame("Button", nil, optBar, "UIPanelButtonTemplate")
-    inviteBtn:SetSize(40, 20)
+    inviteBtn:SetHeight(20)
     inviteBtn:SetPoint("RIGHT", optBtn, "LEFT", -2, 0)
     inviteBtn:SetText(L.BTN_INVITE)
     ShrinkButtonFont(inviteBtn)
@@ -1421,7 +1422,7 @@ local function CreateMainFrame()
     f.inviteBtn = inviteBtn
 
     local copyBtn = CreateFrame("Button", nil, optBar, "UIPanelButtonTemplate")
-    copyBtn:SetSize(40, 20)
+    copyBtn:SetHeight(20)
     copyBtn:SetPoint("RIGHT", inviteBtn, "LEFT", -2, 0)
     copyBtn:SetText(L.BTN_COPY)
     ShrinkButtonFont(copyBtn)
