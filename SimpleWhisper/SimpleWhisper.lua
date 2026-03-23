@@ -165,7 +165,7 @@ if locale == "koKR" then
     L.OPT_COMBAT_OPEN = "전투 중 자동 열기"
     L.OPT_HIDE_CHAT = "채팅창에서 귓속말 숨기기"
     L.OPT_INTERCEPT = "귓속말 여기서 열기"
-    L.OPT_ESC_CLOSE = "ESC 즉시 닫기"
+    L.OPT_ESC_CLOSE = "ESC 클릭 시 즉시 닫기"
     L.OPT_FONT_SIZE = "글꼴 크기"
     L.OPT_OPACITY   = "불투명도"
     L.SND_1         = "귓속말 알림"
