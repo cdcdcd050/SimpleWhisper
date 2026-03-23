@@ -29,6 +29,7 @@ local L = {
     OPT_COMBAT_OPEN = "Auto-open in combat",
     OPT_HIDE_CHAT   = "Hide whispers from chat",
     OPT_INTERCEPT   = "Open whispers here",
+    OPT_ESC_CLOSE   = "ESC closes immediately",
     OPT_FONT_SIZE   = "Font size",
     OPT_OPACITY     = "Opacity",
     SND_1           = "Whisper",
@@ -50,6 +51,8 @@ local L = {
     MSG_HIDE_OFF    = "Whispers shown in chat frame.",
     MSG_INTCPT_ON   = "Whispers will open in SimpleWhisper.",
     MSG_INTCPT_OFF  = "Whispers will open in default chat.",
+    MSG_ESC_ON      = "ESC will close window immediately.",
+    MSG_ESC_OFF     = "ESC will unfocus first, then close.",
     MSG_ALL_DEL     = "All conversations deleted.",
     UNREAD_FMT      = "Unread: |cffff3333%d|r",
     WHO_REFRESH     = "Refresh",
@@ -162,6 +165,7 @@ if locale == "koKR" then
     L.OPT_COMBAT_OPEN = "전투 중 자동 열기"
     L.OPT_HIDE_CHAT = "채팅창에서 귓속말 숨기기"
     L.OPT_INTERCEPT = "귓속말 여기서 열기"
+    L.OPT_ESC_CLOSE = "ESC 즉시 닫기"
     L.OPT_FONT_SIZE = "글꼴 크기"
     L.OPT_OPACITY   = "불투명도"
     L.SND_1         = "귓속말 알림"
@@ -183,6 +187,8 @@ if locale == "koKR" then
     L.MSG_HIDE_OFF  = "채팅창에서 귓속말이 표시됩니다."
     L.MSG_INTCPT_ON = "귓속말을 보낼 때 심플귓속말 창이 열립니다."
     L.MSG_INTCPT_OFF = "귓속말을 보낼 때 기본 채팅창이 열립니다."
+    L.MSG_ESC_ON    = "ESC를 누르면 창이 즉시 닫힙니다."
+    L.MSG_ESC_OFF   = "ESC를 누르면 포커스 해제 후 닫힙니다."
     L.MSG_ALL_DEL   = "모든 대화가 삭제되었습니다."
     L.UNREAD_FMT    = "안 읽은 메시지: |cffff3333%d|r"
     L.WHO_REFRESH   = "새로고침"
@@ -1128,10 +1134,26 @@ local function CreateMainFrame()
     interceptLabel:SetPoint("LEFT", interceptCheck, "RIGHT", 2, 0)
     interceptLabel:SetText(L.OPT_INTERCEPT)
 
+    local escCloseCheck = CreateFrame("CheckButton", nil, optPanel, "UICheckButtonTemplate")
+    escCloseCheck:SetSize(20, 20)
+    escCloseCheck:SetPoint("TOPLEFT", interceptCheck, "BOTTOMLEFT", 0, -2)
+    escCloseCheck:SetChecked(SimpleWhisper_DB.escClose ~= false)
+    escCloseCheck:SetScript("OnClick", function(self)
+        SimpleWhisper_DB.escClose = self:GetChecked()
+        if self:GetChecked() then
+            print(L.CHAT_PREFIX .. " " .. L.MSG_ESC_ON)
+        else
+            print(L.CHAT_PREFIX .. " " .. L.MSG_ESC_OFF)
+        end
+    end)
+    local escCloseLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    escCloseLabel:SetPoint("LEFT", escCloseCheck, "RIGHT", 2, 0)
+    escCloseLabel:SetText(L.OPT_ESC_CLOSE)
+
     -- 구분선: 외형 설정
     local optDivider = optPanel:CreateTexture(nil, "ARTWORK")
     optDivider:SetHeight(1)
-    optDivider:SetPoint("TOPLEFT", interceptCheck, "BOTTOMLEFT", 0, -6)
+    optDivider:SetPoint("TOPLEFT", escCloseCheck, "BOTTOMLEFT", 0, -6)
     optDivider:SetPoint("RIGHT", optPanel, "RIGHT", -6, 0)
     optDivider:SetColorTexture(0.5, 0.5, 0.5, 0.4)
 
@@ -1292,6 +1314,7 @@ local function CreateMainFrame()
             SimpleWhisper_DB.combatOpen = false
             SimpleWhisper_DB.hideFromChat = true
             SimpleWhisper_DB.interceptWhisper = true
+            SimpleWhisper_DB.escClose = true
             SimpleWhisper_DB.opacityEnabled = true
             SimpleWhisper_DB.opacity = 0.85
             SimpleWhisper_DB.fontSize = 12
@@ -1308,6 +1331,7 @@ local function CreateMainFrame()
             combatOpenCheck:SetChecked(false)
             hideChatCheck:SetChecked(true)
             interceptCheck:SetChecked(true)
+            escCloseCheck:SetChecked(true)
             opacityCheck:SetChecked(true)
             opacitySlider:SetValue(0.85)
             fontSizeSlider:SetValue(12)
@@ -1338,14 +1362,14 @@ local function CreateMainFrame()
     versionText:SetPoint("TOP", resetBtn, "BOTTOM", 0, -4)
     versionText:SetText("|cff888888v" .. tocVersion .. "|r")
 
-    local optLabels = { soundLabel, autoOpenLabel, combatOpenLabel, hideChatLabel, interceptLabel, opacityLabel, fontSizeLabel }
+    local optLabels = { soundLabel, autoOpenLabel, combatOpenLabel, hideChatLabel, interceptLabel, escCloseLabel, opacityLabel, fontSizeLabel }
 
     -- 옵션 패널 크기 계산 (높이: 고정 합산, 너비: 텍스트 측정)
     -- 세로: 앵커 체인 합산
     local optH = 6                           -- 상단 여백
         + 20 + 4                             -- soundCheck + gap
         + 16 + 4                             -- soundSelectLabel행 + gap
-        + (20 + 2) * 4                       -- autoOpen~interceptCheck (4개 × (20+2))
+        + (20 + 2) * 5                       -- autoOpen~escCloseCheck (5개 × (20+2))
         + 6 + 1                              -- gap + optDivider
         + 8 + 12 + 8 + 17                   -- gap + fontSizeLabel + gap + fontSizeSlider
         + 8 + 20 + 10 + 17                  -- gap + opacityCheck + gap + opacitySlider
@@ -1689,7 +1713,17 @@ local function CreateMainFrame()
         end
         self:SetText("")
     end)
-    inputBox:SetScript("OnEscapePressed", function(self) self:ClearFocus(); f:Hide() end)
+    inputBox:SetScript("OnEscapePressed", function(self)
+        if SimpleWhisper_DB.escClose then
+            self:ClearFocus(); f:Hide()
+        else
+            if self:HasFocus() then
+                self:ClearFocus()
+            else
+                f:Hide()
+            end
+        end
+    end)
     -- 팝업 외부 클릭 시 입력란 포커스 해제
     local focusWatcher = CreateFrame("Frame", nil, f)
     focusWatcher:SetScript("OnUpdate", function()
@@ -1751,7 +1785,13 @@ local function CreateMainFrame()
     memoBox:SetScript("OnEditFocusLost", function(self)
         if self:GetText() == "" then memoHint:Show() end
     end)
-    memoBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    memoBox:SetScript("OnEscapePressed", function(self)
+        if SimpleWhisper_DB.escClose then
+            self:ClearFocus(); f:Hide()
+        else
+            self:ClearFocus()
+        end
+    end)
     memoBox:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
     f.memoBox = memoBox
 
@@ -2008,6 +2048,9 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         end
         if SimpleWhisper_DB.interceptWhisper == nil then
             SimpleWhisper_DB.interceptWhisper = true
+        end
+        if SimpleWhisper_DB.escClose == nil then
+            SimpleWhisper_DB.escClose = true
         end
         if SimpleWhisper_DB.opacity == nil then
             SimpleWhisper_DB.opacity = 0.85
