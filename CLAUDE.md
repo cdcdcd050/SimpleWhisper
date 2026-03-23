@@ -41,7 +41,7 @@ SimpleWhisper/
       soundChoice = 1,              -- 소리 선택 (1=귓속말, 2=경매장, 3=커스텀)
       showTime = false,             -- 시간 표시
       autoOpen = true,              -- 수신 시 자동 열기
-      combatOpen = false,           -- 전투 중 자동 열기
+      combatMode = 1,               -- 전투 중 수신 (1=즉시, 2=종료후, 3=안열기)
       hideFromChat = true,          -- 기본 채팅창 숨기기
       interceptWhisper = true,      -- 귓속말 여기서 열기
       escClose = true,              -- ESC 클릭 시 즉시 닫기
@@ -63,6 +63,7 @@ SimpleWhisper/
 |--------|------|
 | `/swsw` | 메인 창 열기/닫기 |
 | `/swsw demo` | 데모 데이터 로드 (테스트용) |
+| `/swsw t1` | 가짜 귓속말 수신 시뮬레이션 (테스트용) |
 
 ### UI 레이아웃 (450×298 팝업 창, 리사이즈 가능)
 ```
@@ -110,9 +111,9 @@ SimpleWhisper/
 |------|--------|------|
 | 수신 알림 소리 | 켜짐 | 3종 소리 선택 가능 (귓속말/경매장/커스텀sw3.ogg) |
 | 수신 시 자동 열기 | 켜짐 | 귓속말 수신 시 창 자동 팝업 |
-| 전투 중 자동 열기 | 꺼짐 | 전투 중에도 자동 팝업 허용 (창이 이미 열려 있으면 이 옵션과 무관하게 내용 갱신됨) |
-| 채팅창에서 귓속말 숨기기 | 켜짐 | 귓속말을 SimpleWhisper에만 표시 (`ChatFrame_AddMessageEventFilter` 사용, BNet 포함) |
-| 귓속말 여기서 열기 | 켜짐 | 채팅창 이름 클릭/귓속말 시작 시 SimpleWhisper로 가로채기 |
+| ↳ 전투중 | 즉시 | 3단 선택: 즉시(전투 중 바로 열기) / 종료후(전투 끝나고 열기) / 안열기 |
+| 기본 채팅창에서 귓속말 숨기기 | 켜짐 | 귓속말을 SimpleWhisper에만 표시 (`ChatFrame_AddMessageEventFilter` 사용, BNet 포함) |
+| 귓속말 보낼 때 여기서 열기 | 켜짐 | 채팅창 이름 클릭/귓속말 시작 시 SimpleWhisper로 가로채기 |
 | ESC 클릭 시 즉시 닫기 | 켜짐 | 켜짐: ESC로 즉시 창 닫기, 꺼짐: ESC로 포커스 해제 후 재차 ESC로 닫기 |
 | 글꼴 크기 | 12pt | 슬라이더 (10~22pt), 채팅/입력/이름 목록/메모 모두 적용 |
 | 불투명도 | 85% | 체크박스 + 슬라이더 (30~100%), 체크 해제 시 100% |
