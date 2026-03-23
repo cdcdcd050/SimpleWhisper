@@ -26,8 +26,13 @@ local L = {
     OPT_SOUND       = "Notification sound",
     OPT_SOUND_SEL   = "Sound :",
     OPT_AUTO_OPEN   = "Auto-open on receive",
-    OPT_COMBAT_OPEN = "Auto-open in combat",
-    OPT_AFTER_COMBAT = "  Open after combat ends",
+    OPT_COMBAT     = "In combat:",
+    COMBAT_1       = "Instant",
+    COMBAT_2       = "After",
+    COMBAT_3       = "Never",
+    COMBAT_TIP_1   = "Open immediately during combat",
+    COMBAT_TIP_2   = "Open after combat ends",
+    COMBAT_TIP_3   = "Do not open during combat",
     OPT_HIDE_CHAT   = "Hide whispers from chat",
     OPT_INTERCEPT   = "Open whispers here",
     OPT_ESC_CLOSE   = "ESC closes immediately",
@@ -46,8 +51,6 @@ local L = {
     MSG_CUSTOM_SND  = "Place sw3.ogg in SimpleWhisper/Sounds/ folder.",
     MSG_AUTO_ON     = "Window will auto-open on whisper.",
     MSG_AUTO_OFF    = "Window will not auto-open on whisper.",
-    MSG_COMBAT_ON   = "Window will auto-open during combat.",
-    MSG_COMBAT_OFF  = "Window will not auto-open during combat.",
     MSG_HIDE_ON     = "Whispers hidden from chat frame.",
     MSG_HIDE_OFF    = "Whispers shown in chat frame.",
     MSG_INTCPT_ON   = "Whispers will open in SimpleWhisper.",
@@ -164,10 +167,15 @@ if locale == "koKR" then
     L.OPT_SOUND     = "수신 알림 소리"
     L.OPT_SOUND_SEL = "소리 선택 :"
     L.OPT_AUTO_OPEN = "수신 시 자동 열기"
-    L.OPT_COMBAT_OPEN = "전투 중 자동 열기"
-    L.OPT_AFTER_COMBAT = "  전투 종료 후 열기"
-    L.OPT_HIDE_CHAT = "채팅창에서 귓속말 숨기기"
-    L.OPT_INTERCEPT = "귓속말 여기서 열기"
+    L.OPT_COMBAT    = "전투중:"
+    L.COMBAT_1      = "즉시"
+    L.COMBAT_2      = "종료후"
+    L.COMBAT_3      = "안열기"
+    L.COMBAT_TIP_1  = "전투 중에도 즉시 열기"
+    L.COMBAT_TIP_2  = "전투 종료 후 열기"
+    L.COMBAT_TIP_3  = "전투 중에는 열지 않기"
+    L.OPT_HIDE_CHAT = "기본 채팅창에서 귓속말 숨기기"
+    L.OPT_INTERCEPT = "귓속말 보낼 때 여기서 열기"
     L.OPT_ESC_CLOSE = "ESC 클릭 시 즉시 닫기"
     L.OPT_FONT_SIZE = "글꼴 크기"
     L.OPT_OPACITY   = "불투명도"
@@ -184,8 +192,6 @@ if locale == "koKR" then
     L.MSG_CUSTOM_SND = "sw3.ogg 파일을 만들어 SimpleWhisper/Sounds/ 에 넣으세요."
     L.MSG_AUTO_ON   = "귓속말을 받으면 창이 자동으로 열립니다."
     L.MSG_AUTO_OFF  = "귓속말을 받아도 창이 자동으로 열리지 않습니다."
-    L.MSG_COMBAT_ON = "전투 중에도 귓속말 창이 자동으로 열립니다."
-    L.MSG_COMBAT_OFF = "전투 중에는 귓속말 창이 자동으로 열리지 않습니다."
     L.MSG_HIDE_ON   = "채팅창에서 귓속말이 숨겨집니다."
     L.MSG_HIDE_OFF  = "채팅창에서 귓속말이 표시됩니다."
     L.MSG_INTCPT_ON = "귓속말을 보낼 때 심플귓속말 창이 열립니다."
@@ -1077,6 +1083,66 @@ local function CreateMainFrame()
     autoOpenCheck:SetSize(20, 20)
     autoOpenCheck:SetPoint("TOPLEFT", soundSelectLabel, "BOTTOMLEFT", -22, -4)
     autoOpenCheck:SetChecked(SimpleWhisper_DB.autoOpen ~= false)
+    local autoOpenLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    autoOpenLabel:SetPoint("LEFT", autoOpenCheck, "RIGHT", 2, 0)
+    autoOpenLabel:SetText(L.OPT_AUTO_OPEN)
+
+    -- 전투 중 수신: 버튼 3개 (즉시/종료후/안열기)
+    local combatLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    combatLabel:SetPoint("TOPLEFT", autoOpenCheck, "BOTTOMLEFT", 22, -6)
+    combatLabel:SetText(L.OPT_COMBAT)
+
+    local combatBtns = {}
+    local COMBAT_LABELS = { L.COMBAT_1, L.COMBAT_2, L.COMBAT_3 }
+    local function UpdateCombatBtns()
+        local idx = SimpleWhisper_DB.combatMode or 1
+        for i, btn in ipairs(combatBtns) do
+            if i == idx then
+                btn:GetFontString():SetTextColor(1, 1, 0)
+            else
+                btn:GetFontString():SetTextColor(0.6, 0.6, 0.6)
+            end
+        end
+    end
+    for i = 1, 3 do
+        local btn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
+        btn:SetHeight(16)
+        btn:SetText(COMBAT_LABELS[i])
+        ShrinkButtonFont(btn)
+        if i == 1 then
+            btn:SetPoint("TOPLEFT", combatLabel, "BOTTOMLEFT", 0, -2)
+        else
+            btn:SetPoint("LEFT", combatBtns[i - 1], "RIGHT", 0, 0)
+        end
+        btn:SetScript("OnClick", function()
+            SimpleWhisper_DB.combatMode = i
+            UpdateCombatBtns()
+        end)
+        local COMBAT_TIPS = { L.COMBAT_TIP_1, L.COMBAT_TIP_2, L.COMBAT_TIP_3 }
+        btn:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_TOP")
+            GameTooltip:AddLine(COMBAT_TIPS[i])
+            GameTooltip:Show()
+        end)
+        btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        combatBtns[i] = btn
+    end
+    UpdateCombatBtns()
+
+    local function SetCombatBtnsEnabled(enabled)
+        for _, btn in ipairs(combatBtns) do
+            if enabled then btn:Enable() else btn:Disable() end
+        end
+        combatLabel:SetFontObject(enabled and "GameFontNormalSmall" or "GameFontDisableSmall")
+        if enabled then
+            UpdateCombatBtns()
+        else
+            for _, btn in ipairs(combatBtns) do
+                btn:GetFontString():SetTextColor(0.4, 0.4, 0.4)
+            end
+        end
+    end
+    -- autoOpen OnClick (SetCombatBtnsEnabled 정의 후 설정)
     autoOpenCheck:SetScript("OnClick", function(self)
         SimpleWhisper_DB.autoOpen = self:GetChecked()
         if self:GetChecked() then
@@ -1084,51 +1150,16 @@ local function CreateMainFrame()
         else
             print(L.CHAT_PREFIX .. " " .. L.MSG_AUTO_OFF)
         end
+        SetCombatBtnsEnabled(self:GetChecked())
     end)
-    local autoOpenLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    autoOpenLabel:SetPoint("LEFT", autoOpenCheck, "RIGHT", 2, 0)
-    autoOpenLabel:SetText(L.OPT_AUTO_OPEN)
-
-    local combatOpenCheck = CreateFrame("CheckButton", nil, optPanel, "UICheckButtonTemplate")
-    combatOpenCheck:SetSize(20, 20)
-    combatOpenCheck:SetPoint("TOPLEFT", autoOpenCheck, "BOTTOMLEFT", 0, -2)
-    combatOpenCheck:SetChecked(SimpleWhisper_DB.combatOpen or false)
-    local combatOpenLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    combatOpenLabel:SetPoint("LEFT", combatOpenCheck, "RIGHT", 2, 0)
-    combatOpenLabel:SetText(L.OPT_COMBAT_OPEN)
-
-    local afterCombatCheck = CreateFrame("CheckButton", nil, optPanel, "UICheckButtonTemplate")
-    afterCombatCheck:SetSize(20, 20)
-    afterCombatCheck:SetPoint("TOPLEFT", combatOpenCheck, "BOTTOMLEFT", 20, -2)
-    afterCombatCheck:SetChecked(SimpleWhisper_DB.afterCombat or false)
-    afterCombatCheck:SetScript("OnClick", function(self)
-        SimpleWhisper_DB.afterCombat = self:GetChecked()
-    end)
-    local afterCombatLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    afterCombatLabel:SetPoint("LEFT", afterCombatCheck, "RIGHT", 2, 0)
-    afterCombatLabel:SetText(L.OPT_AFTER_COMBAT)
-    -- 초기 활성화 상태
-    if not SimpleWhisper_DB.combatOpen then
-        afterCombatCheck:Disable()
-        afterCombatLabel:SetFontObject("GameFontDisableSmall")
+    -- 초기 상태
+    if not (SimpleWhisper_DB.autoOpen ~= false) then
+        SetCombatBtnsEnabled(false)
     end
-
-    combatOpenCheck:SetScript("OnClick", function(self)
-        SimpleWhisper_DB.combatOpen = self:GetChecked()
-        if self:GetChecked() then
-            print(L.CHAT_PREFIX .. " " .. L.MSG_COMBAT_ON)
-            afterCombatCheck:Enable()
-            afterCombatLabel:SetFontObject("GameFontNormalSmall")
-        else
-            print(L.CHAT_PREFIX .. " " .. L.MSG_COMBAT_OFF)
-            afterCombatCheck:Disable()
-            afterCombatLabel:SetFontObject("GameFontDisableSmall")
-        end
-    end)
 
     local hideChatCheck = CreateFrame("CheckButton", nil, optPanel, "UICheckButtonTemplate")
     hideChatCheck:SetSize(20, 20)
-    hideChatCheck:SetPoint("TOPLEFT", afterCombatCheck, "BOTTOMLEFT", -20, -2)
+    hideChatCheck:SetPoint("TOPLEFT", autoOpenCheck, "BOTTOMLEFT", 0, -40)
     hideChatCheck:SetChecked(SimpleWhisper_DB.hideFromChat or false)
     hideChatCheck:SetScript("OnClick", function(self)
         SimpleWhisper_DB.hideFromChat = self:GetChecked()
@@ -1335,8 +1366,7 @@ local function CreateMainFrame()
             SimpleWhisper_DB.soundEnabled = true
             SimpleWhisper_DB.showTime = false
             SimpleWhisper_DB.autoOpen = true
-            SimpleWhisper_DB.combatOpen = false
-            SimpleWhisper_DB.afterCombat = false
+            SimpleWhisper_DB.combatMode = 1
             SimpleWhisper_DB.hideFromChat = true
             SimpleWhisper_DB.interceptWhisper = true
             SimpleWhisper_DB.escClose = true
@@ -1353,10 +1383,8 @@ local function CreateMainFrame()
             soundCheck:SetChecked(true)
             SimpleWhisper_DB.showTime = false
             autoOpenCheck:SetChecked(true)
-            combatOpenCheck:SetChecked(false)
-            afterCombatCheck:SetChecked(false)
-            afterCombatCheck:Disable()
-            afterCombatLabel:SetFontObject("GameFontDisableSmall")
+            UpdateCombatBtns()
+            SetCombatBtnsEnabled(true)
             hideChatCheck:SetChecked(true)
             interceptCheck:SetChecked(true)
             escCloseCheck:SetChecked(true)
@@ -1390,14 +1418,15 @@ local function CreateMainFrame()
     versionText:SetPoint("TOP", resetBtn, "BOTTOM", 0, -4)
     versionText:SetText("|cff888888v" .. tocVersion .. "|r")
 
-    local optLabels = { soundLabel, autoOpenLabel, combatOpenLabel, afterCombatLabel, hideChatLabel, interceptLabel, escCloseLabel, opacityLabel, fontSizeLabel }
+    local optLabels = { soundLabel, autoOpenLabel, hideChatLabel, interceptLabel, escCloseLabel, opacityLabel, fontSizeLabel }
 
     -- 옵션 패널 크기 계산 (높이: 고정 합산, 너비: 텍스트 측정)
     -- 세로: 앵커 체인 합산
     local optH = 6                           -- 상단 여백
         + 20 + 4                             -- soundCheck + gap
         + 16 + 4                             -- soundSelectLabel행 + gap
-        + (20 + 2) * 6                       -- autoOpen~escCloseCheck (6개 × (20+2))
+        + 6 + 12 + 2 + 16 + 4               -- 전투 중 라벨 + 버튼행 (autoOpen 아래)
+        + (20 + 2) * 4                       -- hideChat~escCloseCheck (4개 × (20+2))
         + 6 + 1                              -- gap + optDivider
         + 8 + 12 + 8 + 17                   -- gap + fontSizeLabel + gap + fontSizeSlider
         + 8 + 20 + 10 + 17                  -- gap + opacityCheck + gap + opacitySlider
@@ -1419,7 +1448,13 @@ local function CreateMainFrame()
         soundRowW = soundRowW + btn:GetWidth()
     end
     soundRowW = soundRowW + 12
-    panelW = math.max(panelW, soundRowW, 130)
+    -- 전투 중 버튼행 (라벨과 버튼이 별도 줄)
+    local combatRowW = 22
+    for _, btn in ipairs(combatBtns) do
+        combatRowW = combatRowW + btn:GetWidth()
+    end
+    combatRowW = combatRowW + 12
+    panelW = math.max(panelW, soundRowW, combatRowW, 130)
     optPanel:SetWidth(panelW)
 
     -- 옵션 패널 외부 클릭 시 닫기
@@ -2069,11 +2104,8 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         if SimpleWhisper_DB.autoOpen == nil then
             SimpleWhisper_DB.autoOpen = true
         end
-        if SimpleWhisper_DB.combatOpen == nil then
-            SimpleWhisper_DB.combatOpen = false
-        end
-        if SimpleWhisper_DB.afterCombat == nil then
-            SimpleWhisper_DB.afterCombat = false
+        if SimpleWhisper_DB.combatMode == nil then
+            SimpleWhisper_DB.combatMode = 1
         end
         if SimpleWhisper_DB.hideFromChat == nil then
             SimpleWhisper_DB.hideFromChat = true
@@ -2335,6 +2367,38 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                     RefreshChatDisplay()
                 end
                 return
+            elseif msg == "t1" then
+                -- 가짜 귓속말 수신 이벤트 시뮬레이션 (테스트용)
+                local fakeName = "TestPlayer"
+                local fakeMsg = "Test whisper " .. date("%H:%M:%S")
+                EnsureConversation(fakeName, fakeName)
+                AddMessage(fakeName, "in", fakeMsg, fakeName)
+                PlayWhisperSound()
+                local wasHidden = not mainFrame or not mainFrame:IsShown()
+                if wasHidden and SimpleWhisper_DB.autoOpen ~= false then
+                    if not InCombatLockdown() or SimpleWhisper_DB.combatMode == 1 then
+                        local f = CreateMainFrame()
+                        f:Show()
+                        SelectConversation(fakeName, true)
+                        f.nameScroll:SetVerticalScroll(0)
+                    elseif InCombatLockdown() and SimpleWhisper_DB.combatMode == 2 then
+                        pendingCombatNames[fakeName] = true
+                    end
+                end
+                if not wasHidden and mainFrame and mainFrame:IsShown() then
+                    if not selectedName then
+                        SelectConversation(fakeName, true)
+                    else
+                        RefreshNameList()
+                        if fakeName == selectedName then
+                            unreadCounts[fakeName] = 0
+                            UpdateLDBText()
+                            RefreshChatDisplay()
+                        end
+                    end
+                end
+                print(L.CHAT_PREFIX .. " Test whisper from " .. fakeName)
+                return
             end
             ToggleMainFrame()
         end
@@ -2363,12 +2427,12 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         -- 창이 없거나 숨겨져 있으면 자동으로 열기 (옵션 확인)
         local wasHidden = not mainFrame or not mainFrame:IsShown()
         if wasHidden and SimpleWhisper_DB.autoOpen ~= false then
-            if not InCombatLockdown() or SimpleWhisper_DB.combatOpen then
+            if not InCombatLockdown() or SimpleWhisper_DB.combatMode == 1 then
                 local f = CreateMainFrame()
                 f:Show()
                 SelectConversation(name, true)
                 f.nameScroll:SetVerticalScroll(0)
-            elseif InCombatLockdown() and SimpleWhisper_DB.afterCombat then
+            elseif InCombatLockdown() and SimpleWhisper_DB.combatMode == 2 then
                 pendingCombatNames[name] = true
             end
         end
@@ -2420,10 +2484,10 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 
         local wasHidden = not mainFrame or not mainFrame:IsShown()
         if wasHidden and SimpleWhisper_DB.autoOpen ~= false then
-            if not InCombatLockdown() or SimpleWhisper_DB.combatOpen then
+            if not InCombatLockdown() or SimpleWhisper_DB.combatMode == 1 then
                 local f = CreateMainFrame()
                 f:Show()
-            elseif InCombatLockdown() and SimpleWhisper_DB.afterCombat then
+            elseif InCombatLockdown() and SimpleWhisper_DB.combatMode == 2 then
                 pendingCombatNames[shortDisplay] = true
             end
         end
@@ -2565,21 +2629,24 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "PLAYER_REGEN_ENABLED" then
         -- 전투 종료 후 보류된 대화 열기
         if next(pendingCombatNames) then
-            local f = CreateMainFrame()
-            if not f:IsShown() then
+            -- 이미 창이 열려있으면 보류 목록만 비움
+            if mainFrame and mainFrame:IsShown() then
+                wipe(pendingCombatNames)
+            else
+                local f = CreateMainFrame()
                 f:Show()
+                -- 보류 이름이 1개면 자동 선택
+                local count = 0
+                local singleName = nil
+                for n in pairs(pendingCombatNames) do
+                    count = count + 1
+                    singleName = n
+                end
+                if count == 1 then
+                    SelectConversation(singleName, true)
+                end
+                wipe(pendingCombatNames)
             end
-            -- 보류 이름이 1개면 자동 선택
-            local count = 0
-            local singleName = nil
-            for n in pairs(pendingCombatNames) do
-                count = count + 1
-                singleName = n
-            end
-            if count == 1 then
-                SelectConversation(singleName, true)
-            end
-            wipe(pendingCombatNames)
         end
 
     end
