@@ -85,7 +85,8 @@ local pendingWhoTimer = nil  -- /who 타임아웃 타이머
 local whoFilterUntil = 0  -- /who 시스템 메시지 필터 만료 시간
 local pendingCombatNames = {}  -- 전투 중 보류된 대화 이름 목록
 local lastReadIndices = {}   -- ["이름"] = 마지막 읽은 메시지 인덱스
-local soundPlayedFor = {}    -- ["이름"] = GetTime() — 팝업 닫힌 동안 소리 재생한 이름+시간 추적
+local soundPlayedFor = {}    -- ["이름"] = GetTime() — 수신 소리 디바운스
+local soundPlayedForOut = {} -- ["이름"] = GetTime() — 발신 소리 디바운스
 local AddMessage             -- forward declare (WHO_LIST_UPDATE 콜백에서 사용)
 local RefreshNameList        -- forward declare (AddMessage에서 사용)
 local RefreshChatDisplay     -- forward declare (WHO_LIST_UPDATE 콜백에서 사용)
@@ -330,17 +331,17 @@ local SOUND_OPTIONS = {
     { name = L.SND_3, file = "Interface\\AddOns\\SimpleWhisper\\Sounds\\sw3.ogg" },
 }
 
-local SOUND_DEBOUNCE = 90  -- 같은 상대 연속 귓속말 소리 무시 간격 (초)
+local SOUND_DEBOUNCE = 30  -- 같은 상대 연속 귓속말 소리 무시 간격 (초)
 
-local function PlayWhisperSound(name)
+local function PlayWhisperSound(name, isOutgoing)
     if not SimpleWhisper_DB or not SimpleWhisper_DB.soundEnabled then return end
-    -- 같은 상대 1분 이내 중복 방지
     if name then
         local now = GetTime()
-        if soundPlayedFor[name] and (now - soundPlayedFor[name]) < SOUND_DEBOUNCE then
+        local tracker = isOutgoing and soundPlayedForOut or soundPlayedFor
+        if tracker[name] and (now - tracker[name]) < SOUND_DEBOUNCE then
             return
         end
-        soundPlayedFor[name] = now
+        tracker[name] = now
     end
     local idx = SimpleWhisper_DB.soundChoice or 1
     local snd = SOUND_OPTIONS[idx]
@@ -1084,6 +1085,7 @@ local function CreateMainFrame()
     soundCheck:SetChecked(SimpleWhisper_DB.soundEnabled)
     soundCheck:SetScript("OnClick", function(self)
         SimpleWhisper_DB.soundEnabled = self:GetChecked()
+        wipe(soundPlayedFor); wipe(soundPlayedForOut)
         if self:GetChecked() then
             print(L.CHAT_PREFIX .. " " .. L.MSG_SOUND_ON)
         else
@@ -1123,6 +1125,7 @@ local function CreateMainFrame()
         btn:SetScript("OnClick", function()
             SimpleWhisper_DB.soundChoice = i
             UpdateSoundBtns()
+            wipe(soundPlayedFor); wipe(soundPlayedForOut)
             PlaySoundFile(SOUND_OPTIONS[i].file, "Master")
             if i == #SOUND_OPTIONS then
                 print(L.CHAT_PREFIX .. " " .. L.MSG_CUSTOM_SND)
@@ -2627,6 +2630,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
             end
         end
         AddMessage(name, "out", text, fullName)
+        PlayWhisperSound(name, true)
 
         if mainFrame and mainFrame:IsShown() then
             RefreshNameList()
@@ -2681,6 +2685,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         local shortDisplay = displayName:match("^(.-)#") or displayName
         EnsureConversation(shortDisplay, displayName, true, bnID)
         AddMessage(shortDisplay, "out", text, displayName)
+        PlayWhisperSound(shortDisplay, true)
 
         if mainFrame and mainFrame:IsShown() then
             RefreshNameList()
