@@ -346,7 +346,7 @@ local function PlayWhisperSound(name, isOutgoing)
     local idx = SimpleWhisper_DB.soundChoice or 1
     local snd = SOUND_OPTIONS[idx]
     if snd then
-        PlaySoundFile(snd.file, "Master")
+        PlaySoundFile(snd.file, "SFX")
     end
 end
 
