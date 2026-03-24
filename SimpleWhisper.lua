@@ -1828,7 +1828,15 @@ local function CreateMainFrame()
 
     inputBox:SetScript("OnEnterPressed", function(self)
         local text = self:GetText()
-        if text == "" or not selectedName then return end
+        if text == "" then return end
+        -- 슬래시 명령어 처리
+        if text:sub(1, 1) == "/" then
+            ChatFrame1EditBox:SetText(text)
+            ChatEdit_SendText(ChatFrame1EditBox)
+            self:SetText("")
+            return
+        end
+        if not selectedName then return end
         local conv = conversations[selectedName]
         if conv and conv.isBN and conv.bnID then
             SendBNetWhisper(conv.bnID, text)
