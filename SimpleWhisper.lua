@@ -620,9 +620,7 @@ RefreshChatDisplay = function()
             msgFrame:AddMessage("|cff888888— " .. dateTimeStr .. " —|r")
             lastDate = entryDate
         elseif isReadBoundary then
-            msgFrame:AddMessage("|cff666666————————————————————————|r")
-            msgFrame:AddMessage("|cffffcc00— " .. L.READ_MARKER .. " —|r")
-            msgFrame:AddMessage("|cff666666————————————————————————|r")
+            msgFrame:AddMessage("|cff888888———— " .. L.READ_MARKER .. " ————|r")
         elseif isNewDate then
             if lastDate then
                 msgFrame:AddMessage("|cff666666————————————————————————|r")
@@ -659,6 +657,10 @@ RefreshChatDisplay = function()
             end
         end
         msgFrame:AddMessage(line)
+    end
+    -- 새 메시지 없이 팝업 열린 경우 대화 끝에 구분선 표시
+    if readIdx and readIdx > 0 and readIdx == totalMsgs and totalMsgs > 0 then
+        msgFrame:AddMessage("|cff888888———— " .. L.READ_MARKER .. " ————|r")
     end
     if mainFrame.scrollDownBtn then
         mainFrame.scrollDownBtn:SetShown(not msgFrame:AtBottom())
@@ -1575,9 +1577,7 @@ local function CreateMainFrame()
                 table.insert(lines, "— " .. dateTimeStr .. " —")
                 lastDate = entryDate
             elseif isReadBoundary then
-                table.insert(lines, "————————————————")
-                table.insert(lines, "— " .. L.READ_MARKER .. " —")
-                table.insert(lines, "————————————————")
+                table.insert(lines, "———— " .. L.READ_MARKER .. " ————")
             elseif isNewDate then
                 if lastDate then
                     table.insert(lines, "————————————————")
