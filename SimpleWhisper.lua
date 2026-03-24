@@ -1256,7 +1256,7 @@ local function CreateMainFrame()
 
     -- 소리 선택 행 (수신 알림 소리 아래)
     local soundSelectLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    soundSelectLabel:SetPoint("TOPLEFT", soundCheck, "BOTTOMLEFT", 22, -4)
+    soundSelectLabel:SetPoint("TOPLEFT", soundCheck, "BOTTOMLEFT", 0, -4)
     soundSelectLabel:SetText(L.OPT_SOUND_SEL)
 
     local soundBtns = {}
@@ -1277,8 +1277,6 @@ local function CreateMainFrame()
         ShrinkButtonFont(btn)
         if i == 1 then
             btn:SetPoint("TOPLEFT", soundSelectLabel, "BOTTOMLEFT", 0, -2)
-        elseif i == 4 then
-            btn:SetPoint("TOPLEFT", soundBtns[1], "BOTTOMLEFT", 0, 0)
         else
             btn:SetPoint("LEFT", soundBtns[i - 1], "RIGHT", 0, 0)
         end
@@ -1300,9 +1298,15 @@ local function CreateMainFrame()
     end
     UpdateSoundBtns()
 
+    local autoOpenDivider = optPanel:CreateTexture(nil, "ARTWORK")
+    autoOpenDivider:SetHeight(1)
+    autoOpenDivider:SetPoint("TOPLEFT", soundBtns[1], "BOTTOMLEFT", 0, -6)
+    autoOpenDivider:SetPoint("RIGHT", optPanel, "RIGHT", -6, 0)
+    autoOpenDivider:SetColorTexture(0.5, 0.5, 0.5, 0.4)
+
     local autoOpenCheck = CreateFrame("CheckButton", nil, optPanel, "UICheckButtonTemplate")
     autoOpenCheck:SetSize(20, 20)
-    autoOpenCheck:SetPoint("TOPLEFT", soundSelectLabel, "BOTTOMLEFT", -22, -36)
+    autoOpenCheck:SetPoint("TOPLEFT", autoOpenDivider, "BOTTOMLEFT", 0, -6)
     autoOpenCheck:SetChecked(SimpleWhisper_DB.autoOpen ~= false)
     local autoOpenLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     autoOpenLabel:SetPoint("LEFT", autoOpenCheck, "RIGHT", 2, 0)
@@ -1310,7 +1314,7 @@ local function CreateMainFrame()
 
     -- 전투 중 수신: 버튼 3개 (즉시/종료후/안열기)
     local combatLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    combatLabel:SetPoint("TOPLEFT", autoOpenCheck, "BOTTOMLEFT", 22, -6)
+    combatLabel:SetPoint("TOPLEFT", autoOpenCheck, "BOTTOMLEFT", 0, -6)
     combatLabel:SetText(L.OPT_COMBAT)
 
     local combatBtns = {}
@@ -1373,9 +1377,15 @@ local function CreateMainFrame()
         SetCombatBtnsEnabled(false)
     end
 
+    local hideChatDivider = optPanel:CreateTexture(nil, "ARTWORK")
+    hideChatDivider:SetHeight(1)
+    hideChatDivider:SetPoint("TOPLEFT", combatBtns[1], "BOTTOMLEFT", 0, -6)
+    hideChatDivider:SetPoint("RIGHT", optPanel, "RIGHT", -6, 0)
+    hideChatDivider:SetColorTexture(0.5, 0.5, 0.5, 0.4)
+
     local hideChatCheck = CreateFrame("CheckButton", nil, optPanel, "UICheckButtonTemplate")
     hideChatCheck:SetSize(20, 20)
-    hideChatCheck:SetPoint("TOPLEFT", autoOpenCheck, "BOTTOMLEFT", 0, -40)
+    hideChatCheck:SetPoint("TOPLEFT", hideChatDivider, "BOTTOMLEFT", 0, -6)
     hideChatCheck:SetChecked(SimpleWhisper_DB.hideFromChat or false)
     hideChatCheck:SetScript("OnClick", function(self)
         SimpleWhisper_DB.hideFromChat = self:GetChecked()
@@ -1642,16 +1652,18 @@ local function CreateMainFrame()
     local optH = 6                           -- 상단 여백
         + 20 + 4                             -- soundCheck + gap
         + 16 + 4                             -- soundSelectLabel행 + gap
-        + 16 + 16 + 4                         -- 소리 버튼 2줄 + gap
+        + 16 + 10                             -- 소리 버튼 1줄 + gap
+        + 1 + 6                              -- autoOpenDivider + gap
         + 6 + 12 + 2 + 16 + 4               -- 전투 중 라벨 + 버튼행 (autoOpen 아래)
-        + (20 + 2) * 4                       -- hideChat~escCloseCheck (4개 × (20+2))
+        + 1 + 6                              -- hideChatDivider + gap
+        + (20 + 2) * 3                       -- hideChat~escCloseCheck (3개 × (20+2))
         + 6 + 1                              -- gap + optDivider
         + 8 + 12 + 8 + 17                   -- gap + fontSizeLabel + gap + fontSizeSlider
         + 8 + 20 + 10 + 17                  -- gap + opacityCheck + gap + opacitySlider
         + 10 + 1                             -- gap + resetDivider
         + 6 + 20 + 4 + 20                   -- gap + deleteAllBtn + gap + resetBtn
         + 4 + 12                             -- gap + versionText
-        + 6                                  -- 하단 여백
+        + 12                                 -- 하단 여백
     optPanel:SetHeight(optH)
 
     -- 가로: 라벨/소리행 너비 측정
@@ -1661,15 +1673,13 @@ local function CreateMainFrame()
         if w > maxW then maxW = w end
     end
     local panelW = maxW + 20 + 2 + 12       -- 체크박스(20) + 간격(2) + 여백(12)
-    local soundRowW = 22
-    for i, btn in ipairs(soundBtns) do
-        if i <= 3 then
-            soundRowW = soundRowW + btn:GetWidth()
-        end
+    local soundRowW = 6
+    for _, btn in ipairs(soundBtns) do
+        soundRowW = soundRowW + btn:GetWidth()
     end
     soundRowW = soundRowW + 12
     -- 전투 중 버튼행 (라벨과 버튼이 별도 줄)
-    local combatRowW = 22
+    local combatRowW = 6
     for _, btn in ipairs(combatBtns) do
         combatRowW = combatRowW + btn:GetWidth()
     end

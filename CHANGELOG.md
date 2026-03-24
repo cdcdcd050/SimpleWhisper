@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.3.2] - 2026-03-24
+
+### Changed
+- Options panel layout: reduced indentation, single-row sound buttons, added dividers between sections
+
 ## [1.3.1] - 2026-03-24
 
 ### Added
