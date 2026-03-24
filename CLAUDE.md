@@ -12,10 +12,12 @@
 
 ### 파일 구성
 ```
-SimpleWhisper/
+(repo root)
 ├── SimpleWhisper.toc            -- TOC (멀티 인터페이스)
 ├── SimpleWhisper.lua            -- 단일 메인 파일 (전체 로직)
 ├── CLAUDE.md                    -- 이 문서
+├── CHANGELOG.md                 -- 변경 이력
+├── README.md                    -- 프로젝트 설명
 ├── icon/
 │   └── icon.PNG                 -- 애드온 아이콘 이미지
 ├── Sounds/                      -- (커스텀 알림 소리 폴더, 현재 비어있음)
@@ -289,8 +291,15 @@ SimpleWhisper/
 - 채팅 캐시 프레임(`classCacheFrame`)은 애드온 로드 즉시 생성되어 채팅 이벤트를 상시 수집
 
 ## 릴리즈 절차
-- 압축 형식: **zip**, `SimpleWhisper/` 폴더를 포함하여 압축
+- 압축 형식: **zip**, `SimpleWhisper/` 폴더로 감싸서 압축 (WoW AddOns 폴더에 바로 풀 수 있도록)
 - 파일명: `SimpleWhisper-{버전}.zip` (예: `SimpleWhisper-1.1.1.zip`)
 - GitHub 릴리즈 태그: `v{버전}` (예: `v1.1.1`)
 - 릴리즈 노트: `CHANGELOG.md` 해당 버전 내용을 그대로 사용
-- PowerShell 압축 명령: `Compress-Archive -Path 'SimpleWhisper' -DestinationPath 'SimpleWhisper-{버전}.zip' -Force`
+- 압축 시 임시 폴더를 만들어 애드온 파일만 복사 후 압축 (CLAUDE.md, README.md, CHANGELOG.md 등 제외)
+  ```powershell
+  mkdir SimpleWhisper
+  Copy-Item SimpleWhisper.toc, SimpleWhisper.lua -Destination SimpleWhisper/
+  Copy-Item icon, libs, Sounds -Destination SimpleWhisper/ -Recurse -ErrorAction SilentlyContinue
+  Compress-Archive -Path 'SimpleWhisper' -DestinationPath 'SimpleWhisper-{버전}.zip' -Force
+  Remove-Item SimpleWhisper -Recurse
+  ```
