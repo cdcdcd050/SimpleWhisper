@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.4] - 2026-03-28
+
+### Added
+- Addon on/off toggle in options panel (disable all whisper capture without reload)
+- Capture AFK/DND auto-replies as default behavior (no option needed)
+
+### Changed
+- Delete All and Reset buttons now side by side
+- Adjusted opacity slider spacing for consistency
+
 ## [1.3.3] - 2026-03-28
 
 ### Added

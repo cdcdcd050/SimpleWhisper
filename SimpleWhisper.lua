@@ -73,6 +73,9 @@ local L = {
     READ_MARKER     = "Read up to here",
     AFK_REPLY       = "<AFK>",
     DND_REPLY       = "<DND>",
+    BTN_ADDON_STATE = "Addon:",
+    BTN_STATE_ON    = "ON",
+    BTN_STATE_OFF   = "OFF",
 }
 
 ----------------------------------------------------------------------
@@ -91,6 +94,7 @@ local pendingCombatNames = {}  -- 전투 중 보류된 대화 이름 목록
 local lastReadIndices = {}   -- ["이름"] = 마지막 읽은 메시지 인덱스
 local soundPlayedFor = {}    -- ["이름"] = GetTime() — 수신 소리 디바운스
 local soundPlayedForOut = {} -- ["이름"] = GetTime() — 발신 소리 디바운스
+local addonDisabled = false  -- 애드온 비활성화 플래그
 local AddMessage             -- forward declare (WHO_LIST_UPDATE 콜백에서 사용)
 local RefreshNameList        -- forward declare (AddMessage에서 사용)
 local RefreshChatDisplay     -- forward declare (WHO_LIST_UPDATE 콜백에서 사용)
@@ -219,6 +223,9 @@ if locale == "koKR" then
     L.READ_MARKER   = "여기까지 읽음"
     L.AFK_REPLY     = "<자리비움>"
     L.DND_REPLY     = "<다른 용무중>"
+    L.BTN_ADDON_STATE = "애드온 상태 :"
+    L.BTN_STATE_ON    = "켜짐"
+    L.BTN_STATE_OFF   = "꺼짐"
     L.WHO_LEVEL_PAT = "^(%d+)레벨"
     L.WHO_TOTAL_PAT = "모두%s+(%d+)%s*명"
     L.WHO_NOTFOUND_PAT = "찾지 못했습니다"
@@ -295,6 +302,9 @@ if locale == "zhCN" then
     L.READ_MARKER   = "已读到此处"
     L.AFK_REPLY     = "<离开>"
     L.DND_REPLY     = "<勿扰>"
+    L.BTN_ADDON_STATE = "插件状态："
+    L.BTN_STATE_ON    = "开启"
+    L.BTN_STATE_OFF   = "关闭"
     L.WHO_LEVEL_PAT = "^(%d+)级"
     L.WHO_TOTAL_PAT = "共找到%s*(%d+)%s*位玩家"
     L.WHO_NOTFOUND_PAT = "没有找到"
@@ -371,6 +381,9 @@ if locale == "deDE" then
     L.READ_MARKER   = "Bis hier gelesen"
     L.AFK_REPLY     = "<AFK>"
     L.DND_REPLY     = "<DND>"
+    L.BTN_ADDON_STATE = "Addon:"
+    L.BTN_STATE_ON    = "AN"
+    L.BTN_STATE_OFF   = "AUS"
     L.WHO_LEVEL_PAT = "^Stufe (%d+)"
     L.WHO_TOTAL_PAT = "(%d+) Spieler insgesamt"
     L.WHO_NOTFOUND_PAT = "nicht gefunden"
@@ -1492,7 +1505,7 @@ local function CreateMainFrame()
     local opacitySlider = CreateFrame("Slider", nil, optPanel, "OptionsSliderTemplate")
     opacitySlider:SetHeight(17)
     opacitySlider:SetPoint("RIGHT", optPanel, "RIGHT", -8, 0)
-    opacitySlider:SetPoint("TOPLEFT", opacityCheck, "BOTTOMLEFT", 2, -10)
+    opacitySlider:SetPoint("TOPLEFT", opacityCheck, "BOTTOMLEFT", 2, -8)
     opacitySlider:SetMinMaxValues(0.3, 1.0)
     opacitySlider:SetValueStep(0.05)
     opacitySlider:SetObeyStepOnDrag(true)
@@ -1576,19 +1589,56 @@ local function CreateMainFrame()
         hideOnEscape = true,
     }
 
+    -- 애드온 상태: 켜짐/꺼짐 버튼
+    local addonStateLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    addonStateLabel:SetPoint("TOPLEFT", resetDivider, "BOTTOMLEFT", 0, -10)
+    addonStateLabel:SetText(L.BTN_ADDON_STATE)
+
+    local addonStateBtns = {}
+    local ADDON_STATE_LABELS = { L.BTN_STATE_ON, L.BTN_STATE_OFF }
+    local function UpdateAddonStateBtns()
+        local activeIdx = addonDisabled and 2 or 1
+        for i, btn in ipairs(addonStateBtns) do
+            if i == activeIdx then
+                btn:GetFontString():SetTextColor(1, 1, 0)
+            else
+                btn:GetFontString():SetTextColor(0.6, 0.6, 0.6)
+            end
+        end
+    end
+    for i = 1, 2 do
+        local btn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
+        btn:SetHeight(16)
+        btn:SetText(ADDON_STATE_LABELS[i])
+        ShrinkButtonFont(btn)
+        if i == 1 then
+            btn:SetPoint("LEFT", addonStateLabel, "RIGHT", 4, 0)
+        else
+            btn:SetPoint("LEFT", addonStateBtns[i - 1], "RIGHT", 0, 0)
+        end
+        btn:SetScript("OnClick", function()
+            addonDisabled = (i == 2)
+            UpdateAddonStateBtns()
+        end)
+        addonStateBtns[i] = btn
+    end
+    UpdateAddonStateBtns()
+
+    -- 전체삭제 + 초기화 버튼 (좌우 배치)
     local deleteAllBtn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
     deleteAllBtn:SetHeight(20)
-    deleteAllBtn:SetPoint("TOP", resetDivider, "BOTTOM", 0, -6)
+    deleteAllBtn:SetPoint("TOPLEFT", addonStateLabel, "BOTTOMLEFT", 0, -6)
+    deleteAllBtn:SetPoint("RIGHT", optPanel, "CENTER", -1, 0)
     deleteAllBtn:SetText(L.BTN_DELETE_ALL)
     ShrinkButtonFont(deleteAllBtn)
     deleteAllBtn:SetScript("OnClick", function()
         StaticPopup_Show("SIMPLEWHISPER_DELETE_ALL")
     end)
 
-    -- 초기화 버튼
     local resetBtn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
     resetBtn:SetHeight(20)
-    resetBtn:SetPoint("TOP", deleteAllBtn, "BOTTOM", 0, -4)
+    resetBtn:SetPoint("LEFT", deleteAllBtn, "RIGHT", 2, 0)
+    resetBtn:SetPoint("RIGHT", optPanel, "RIGHT", -6, 0)
     resetBtn:SetText(L.BTN_RESET)
     ShrinkButtonFont(resetBtn)
 
@@ -1623,6 +1673,8 @@ local function CreateMainFrame()
             hideChatCheck:SetChecked(true)
             interceptCheck:SetChecked(true)
             escCloseCheck:SetChecked(true)
+            addonDisabled = false
+            UpdateAddonStateBtns()
             opacityCheck:SetChecked(true)
             opacitySlider:SetValue(0.85)
             fontSizeSlider:SetValue(12)
@@ -1667,9 +1719,9 @@ local function CreateMainFrame()
         + (20 + 2) * 3                       -- hideChat~escCloseCheck (3개 × (20+2))
         + 6 + 1                              -- gap + optDivider
         + 8 + 12 + 8 + 17                   -- gap + fontSizeLabel + gap + fontSizeSlider
-        + 8 + 20 + 10 + 17                  -- gap + opacityCheck + gap + opacitySlider
+        + 8 + 20 + 8 + 17                   -- gap + opacityCheck + gap + opacitySlider
         + 10 + 1                             -- gap + resetDivider
-        + 6 + 20 + 4 + 20                   -- gap + deleteAllBtn + gap + resetBtn
+        + 10 + 16 + 6 + 20                    -- gap + addonState row + gap + deleteAll/reset row
         + 4 + 12                             -- gap + versionText
         + 12                                 -- 하단 여백
     optPanel:SetHeight(optH)
@@ -2223,6 +2275,7 @@ end
 -- 채팅창 이름 클릭 후킹 (SetItemRef)
 ----------------------------------------------------------------------
 local function OpenWhisperTo(name, fullName)
+    if addonDisabled then return end
     EnsureConversation(name, fullName)
     local f = CreateMainFrame()
     f:Show()
@@ -2270,6 +2323,7 @@ end
 
 -- BNet 대화 열기 (BNplayer 링크 클릭용)
 local function OpenBNetWhisperTo(bnID)
+    if addonDisabled then return end
     local displayName = ResolveBNetName(bnID)
     if not displayName then return end
     local shortDisplay = displayName:match("^(.-)#") or displayName
@@ -2282,7 +2336,7 @@ end
 
 local origSetItemRef = SetItemRef
 function SetItemRef(link, text, button, chatFrame, ...)
-    if SimpleWhisper_DB and SimpleWhisper_DB.interceptWhisper ~= false then
+    if not addonDisabled and SimpleWhisper_DB and SimpleWhisper_DB.interceptWhisper ~= false then
         local playerName = link:match("^player:([^:]+)")
         if playerName and button == "LeftButton" then
             OpenWhisperTo(ShortName(playerName), playerName)
@@ -2304,7 +2358,7 @@ end
 -- 모든 귓속말 시작 경로 가로채기 (초상화/우클릭/파티/공격대/채팅입력 등)
 -- 귓속말 모드 전환 시 항상 UpdateHeader가 호출되므로 여기서 일괄 처리
 local function editBoxUpdateHeader(editBox)
-    if not SimpleWhisper_DB or SimpleWhisper_DB.interceptWhisper == false then return end
+    if addonDisabled or not SimpleWhisper_DB or SimpleWhisper_DB.interceptWhisper == false then return end
     local chatType = editBox:GetAttribute("chatType")
     local tellTarget = editBox:GetAttribute("tellTarget")
     if chatType == "WHISPER" and tellTarget then
@@ -2524,6 +2578,7 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 
         -- 기본 채팅창 귓속말 필터
         local function WhisperFilter()
+            if addonDisabled then return false end
             return SimpleWhisper_DB.hideFromChat
         end
         ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER", WhisperFilter)
@@ -2760,6 +2815,9 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         SimpleWhisper_DB.nameList = nameList
         SimpleWhisper_DB.unreadCounts = unreadCounts
         SimpleWhisper_DB.lastReadIndices = lastReadIndices
+
+    elseif addonDisabled then
+        return  -- 비활성화 상태: 나머지 이벤트 무시
 
     elseif event == "CHAT_MSG_WHISPER" then
         local text, fullName, _, _, _, _, _, _, _, _, _, guid = ...
