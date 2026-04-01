@@ -73,7 +73,7 @@ local L = {
     READ_MARKER     = "Read up to here",
     AFK_REPLY       = "<AFK>",
     DND_REPLY       = "<DND>",
-    BTN_ADDON_STATE = "Addon:",
+    BTN_ADDON_STATE = "Addon :",
     BTN_STATE_ON    = "ON",
     BTN_STATE_OFF   = "OFF",
     MENU_OPEN       = "Open",
@@ -81,6 +81,12 @@ local L = {
     MENU_ADDON_ON   = "Addon: ON",
     MENU_ADDON_OFF  = "Addon: OFF",
     LDB_DISABLED    = "Off",
+    BTN_DELETE_LABEL = "Delete :",
+    BTN_PRESET      = "Preset",
+    BTN_PRESET_LABEL = "Chat mode :",
+    MSG_PRESET_ON   = "Chat priority mode ON. (Addon will only save whispers)",
+    MSG_PRESET_OFF  = "Chat priority mode OFF. (Settings restored)",
+    MENU_PRESET     = "Chat priority",
 }
 
 ----------------------------------------------------------------------
@@ -236,6 +242,12 @@ if locale == "koKR" then
     L.MENU_ADDON_ON   = "애드온: 켜짐"
     L.MENU_ADDON_OFF  = "애드온: 꺼짐"
     L.LDB_DISABLED    = "사용안함"
+    L.BTN_DELETE_LABEL = "대화 삭제 :"
+    L.BTN_PRESET      = "프리셋"
+    L.BTN_PRESET_LABEL = "채팅창 우선 :"
+    L.MSG_PRESET_ON   = "채팅창 우선모드 켜짐 (애드온은 귓속말만 저장합니다)"
+    L.MSG_PRESET_OFF  = "채팅창 우선모드 꺼짐 (이전 설정 복원)"
+    L.MENU_PRESET     = "채팅창 우선모드"
     L.WHO_LEVEL_PAT = "^(%d+)레벨"
     L.WHO_TOTAL_PAT = "모두%s+(%d+)%s*명"
     L.WHO_NOTFOUND_PAT = "찾지 못했습니다"
@@ -312,7 +324,7 @@ if locale == "zhCN" then
     L.READ_MARKER   = "已读到此处"
     L.AFK_REPLY     = "<离开>"
     L.DND_REPLY     = "<勿扰>"
-    L.BTN_ADDON_STATE = "插件状态："
+    L.BTN_ADDON_STATE = "插件 ："
     L.BTN_STATE_ON    = "开启"
     L.BTN_STATE_OFF   = "关闭"
     L.MENU_OPEN       = "打开"
@@ -320,6 +332,12 @@ if locale == "zhCN" then
     L.MENU_ADDON_ON   = "插件：开启"
     L.MENU_ADDON_OFF  = "插件：关闭"
     L.LDB_DISABLED    = "已关闭"
+    L.BTN_DELETE_LABEL = "删除对话 ："
+    L.BTN_PRESET      = "预设"
+    L.BTN_PRESET_LABEL = "聊天优先 ："
+    L.MSG_PRESET_ON   = "聊天优先模式 开启（插件仅保存密语记录）"
+    L.MSG_PRESET_OFF  = "聊天优先模式 关闭（已恢复之前设置）"
+    L.MENU_PRESET     = "聊天优先模式"
     L.WHO_LEVEL_PAT = "^(%d+)级"
     L.WHO_TOTAL_PAT = "共找到%s*(%d+)%s*位玩家"
     L.WHO_NOTFOUND_PAT = "没有找到"
@@ -396,7 +414,7 @@ if locale == "deDE" then
     L.READ_MARKER   = "Bis hier gelesen"
     L.AFK_REPLY     = "<AFK>"
     L.DND_REPLY     = "<DND>"
-    L.BTN_ADDON_STATE = "Addon:"
+    L.BTN_ADDON_STATE = "Addon :"
     L.BTN_STATE_ON    = "AN"
     L.BTN_STATE_OFF   = "AUS"
     L.MENU_OPEN       = "Öffnen"
@@ -404,6 +422,12 @@ if locale == "deDE" then
     L.MENU_ADDON_ON   = "Addon: AN"
     L.MENU_ADDON_OFF  = "Addon: AUS"
     L.LDB_DISABLED    = "Aus"
+    L.BTN_DELETE_LABEL = "Löschen :"
+    L.BTN_PRESET      = "Voreinst."
+    L.BTN_PRESET_LABEL = "Chat mode :"
+    L.MSG_PRESET_ON   = "Chat-Priorität AN (Addon speichert nur Flüsternachrichten)"
+    L.MSG_PRESET_OFF  = "Chat-Priorität AUS (Einstellungen wiederhergestellt)"
+    L.MENU_PRESET     = "Chat-Priorität"
     L.WHO_LEVEL_PAT = "^Stufe (%d+)"
     L.WHO_TOTAL_PAT = "(%d+) Spieler insgesamt"
     L.WHO_NOTFOUND_PAT = "nicht gefunden"
@@ -1660,11 +1684,90 @@ local function CreateMainFrame()
     end
     UpdateAddonStateBtns()
 
-    -- 전체삭제 + 초기화 버튼 (좌우 배치)
+    -- 프리셋: 켜짐/꺼짐 버튼
+    local presetLabel = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    presetLabel:SetPoint("TOPLEFT", addonStateLabel, "BOTTOMLEFT", 0, -8)
+    presetLabel:SetText(L.BTN_PRESET_LABEL)
+
+    local presetBtns = {}
+    local PRESET_LABELS = { L.BTN_STATE_ON, L.BTN_STATE_OFF }
+    local function IsPresetActive()
+        return not SimpleWhisper_DB.autoOpen and not SimpleWhisper_DB.hideFromChat and not SimpleWhisper_DB.interceptWhisper
+    end
+    local function UpdatePresetBtns()
+        local activeIdx = IsPresetActive() and 1 or 2
+        for i, btn in ipairs(presetBtns) do
+            if i == activeIdx then
+                btn:GetFontString():SetTextColor(1, 1, 0)
+            else
+                btn:GetFontString():SetTextColor(0.6, 0.6, 0.6)
+            end
+        end
+    end
+    for i = 1, 2 do
+        local btn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
+        btn:SetHeight(16)
+        btn:SetText(PRESET_LABELS[i])
+        ShrinkButtonFont(btn)
+        if i == 1 then
+            btn:SetPoint("LEFT", presetLabel, "RIGHT", 4, 0)
+        else
+            btn:SetPoint("LEFT", presetBtns[i - 1], "RIGHT", 0, 0)
+        end
+        btn:SetScript("OnClick", function()
+            if i == 1 then
+                -- 현재 값 저장 후 3가지 OFF
+                SimpleWhisper_DB.presetBackup = {
+                    autoOpen = SimpleWhisper_DB.autoOpen,
+                    hideFromChat = SimpleWhisper_DB.hideFromChat,
+                    interceptWhisper = SimpleWhisper_DB.interceptWhisper,
+                }
+                SimpleWhisper_DB.autoOpen = false
+                SimpleWhisper_DB.hideFromChat = false
+                SimpleWhisper_DB.interceptWhisper = false
+                autoOpenCheck:SetChecked(false)
+                SetCombatBtnsEnabled(false)
+                hideChatCheck:SetChecked(false)
+                interceptCheck:SetChecked(false)
+                print(L.CHAT_PREFIX .. " " .. L.MSG_PRESET_ON)
+            else
+                -- 저장된 값으로 복원
+                local backup = SimpleWhisper_DB.presetBackup
+                if backup then
+                    SimpleWhisper_DB.autoOpen = backup.autoOpen
+                    SimpleWhisper_DB.hideFromChat = backup.hideFromChat
+                    SimpleWhisper_DB.interceptWhisper = backup.interceptWhisper
+                    SimpleWhisper_DB.presetBackup = nil
+                else
+                    SimpleWhisper_DB.autoOpen = true
+                    SimpleWhisper_DB.hideFromChat = true
+                    SimpleWhisper_DB.interceptWhisper = true
+                end
+                autoOpenCheck:SetChecked(SimpleWhisper_DB.autoOpen)
+                SetCombatBtnsEnabled(SimpleWhisper_DB.autoOpen)
+                hideChatCheck:SetChecked(SimpleWhisper_DB.hideFromChat)
+                interceptCheck:SetChecked(SimpleWhisper_DB.interceptWhisper)
+                print(L.CHAT_PREFIX .. " " .. L.MSG_PRESET_OFF)
+            end
+            UpdatePresetBtns()
+        end)
+        presetBtns[i] = btn
+    end
+    UpdatePresetBtns()
+
+    -- 외부에서 옵션 UI 동기화용
+    f.SyncPresetUI = function()
+        autoOpenCheck:SetChecked(SimpleWhisper_DB.autoOpen)
+        SetCombatBtnsEnabled(SimpleWhisper_DB.autoOpen)
+        hideChatCheck:SetChecked(SimpleWhisper_DB.hideFromChat)
+        interceptCheck:SetChecked(SimpleWhisper_DB.interceptWhisper)
+        UpdatePresetBtns()
+    end
+
+    -- 전체삭제 + 초기화 버튼 (한줄, 전체삭제 왼쪽 / 초기화 오른쪽)
     local deleteAllBtn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
     deleteAllBtn:SetHeight(20)
-    deleteAllBtn:SetPoint("TOPLEFT", addonStateLabel, "BOTTOMLEFT", 0, -6)
-    deleteAllBtn:SetPoint("RIGHT", optPanel, "CENTER", -1, 0)
+    deleteAllBtn:SetPoint("TOPLEFT", presetLabel, "BOTTOMLEFT", 0, -8)
     deleteAllBtn:SetText(L.BTN_DELETE_ALL)
     ShrinkButtonFont(deleteAllBtn)
     deleteAllBtn:SetScript("OnClick", function()
@@ -1674,7 +1777,6 @@ local function CreateMainFrame()
     local resetBtn = CreateFrame("Button", nil, optPanel, "UIPanelButtonTemplate")
     resetBtn:SetHeight(20)
     resetBtn:SetPoint("LEFT", deleteAllBtn, "RIGHT", 2, 0)
-    resetBtn:SetPoint("RIGHT", optPanel, "RIGHT", -6, 0)
     resetBtn:SetText(L.BTN_RESET)
     ShrinkButtonFont(resetBtn)
 
@@ -1714,6 +1816,8 @@ local function CreateMainFrame()
             escCloseCheck:SetChecked(true)
             addonDisabled = false
             UpdateAddonStateBtns()
+            SimpleWhisper_DB.presetBackup = nil
+            UpdatePresetBtns()
             opacityCheck:SetChecked(true)
             opacitySlider:SetValue(0.85)
             fontSizeSlider:SetValue(12)
@@ -1741,10 +1845,10 @@ local function CreateMainFrame()
 
     local tocVersion = (C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version")) or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")) or ""
     local versionText = optPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    versionText:SetPoint("TOP", resetBtn, "BOTTOM", 0, -4)
+    versionText:SetPoint("TOP", deleteAllBtn, "BOTTOM", 0, -4)
     versionText:SetText("|cff888888v" .. tocVersion .. "|r")
 
-    local optLabels = { soundLabel, autoOpenLabel, hideChatLabel, interceptLabel, escCloseLabel, opacityLabel, fontSizeLabel }
+    local optLabels = { soundLabel, autoOpenLabel, hideChatLabel, interceptLabel, escCloseLabel, opacityLabel, fontSizeLabel, presetLabel }
 
     -- 옵션 패널 크기 계산 (높이: 고정 합산, 너비: 텍스트 측정)
     -- 세로: 앵커 체인 합산
@@ -1760,7 +1864,9 @@ local function CreateMainFrame()
         + 8 + 12 + 8 + 17                   -- gap + fontSizeLabel + gap + fontSizeSlider
         + 8 + 20 + 8 + 17                   -- gap + opacityCheck + gap + opacitySlider
         + 10 + 1                             -- gap + resetDivider
-        + 10 + 16 + 6 + 20                    -- gap + addonState row + gap + deleteAll/reset row
+        + 10 + 16                              -- gap + addonState row
+        + 8 + 16                             -- gap + preset row
+        + 8 + 20                             -- gap + deleteAll/reset row
         + 4 + 12                             -- gap + versionText
         + 12                                 -- 하단 여백
     optPanel:SetHeight(optH)
@@ -2528,11 +2634,50 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         local menuFrame = CreateFrame("Frame", "SimpleWhisperMenu", UIParent, "UIDropDownMenuTemplate")
         local function ShowRightClickMenu(anchor)
             local function InitMenu(frame, level)
+                -- Preset toggle
                 local info = UIDropDownMenu_CreateInfo()
-                -- Open
-                info.text = L.MENU_OPEN
+                local presetActive = not SimpleWhisper_DB.autoOpen and not SimpleWhisper_DB.hideFromChat and not SimpleWhisper_DB.interceptWhisper
+                info.text = L.MENU_PRESET .. (presetActive and " |cff00ff00ON|r" or " |cffff3333OFF|r")
                 info.notCheckable = true
-                info.func = function() ToggleMainFrame() end
+                info.func = function()
+                    if presetActive then
+                        local backup = SimpleWhisper_DB.presetBackup
+                        if backup then
+                            SimpleWhisper_DB.autoOpen = backup.autoOpen
+                            SimpleWhisper_DB.hideFromChat = backup.hideFromChat
+                            SimpleWhisper_DB.interceptWhisper = backup.interceptWhisper
+                            SimpleWhisper_DB.presetBackup = nil
+                        else
+                            SimpleWhisper_DB.autoOpen = true
+                            SimpleWhisper_DB.hideFromChat = true
+                            SimpleWhisper_DB.interceptWhisper = true
+                        end
+                        print(L.CHAT_PREFIX .. " " .. L.MSG_PRESET_OFF)
+                    else
+                        SimpleWhisper_DB.presetBackup = {
+                            autoOpen = SimpleWhisper_DB.autoOpen,
+                            hideFromChat = SimpleWhisper_DB.hideFromChat,
+                            interceptWhisper = SimpleWhisper_DB.interceptWhisper,
+                        }
+                        SimpleWhisper_DB.autoOpen = false
+                        SimpleWhisper_DB.hideFromChat = false
+                        SimpleWhisper_DB.interceptWhisper = false
+                        print(L.CHAT_PREFIX .. " " .. L.MSG_PRESET_ON)
+                    end
+                    if mainFrame and mainFrame.SyncPresetUI then
+                        mainFrame.SyncPresetUI()
+                    end
+                end
+                UIDropDownMenu_AddButton(info, level)
+                -- Addon toggle
+                info = UIDropDownMenu_CreateInfo()
+                info.text = addonDisabled and L.MENU_ADDON_OFF or L.MENU_ADDON_ON
+                info.notCheckable = true
+                info.func = function()
+                    addonDisabled = not addonDisabled
+                    SimpleWhisper_DB.addonDisabled = addonDisabled
+                    UpdateLDBText()
+                end
                 UIDropDownMenu_AddButton(info, level)
                 -- Options
                 info = UIDropDownMenu_CreateInfo()
@@ -2546,15 +2691,11 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                     end
                 end
                 UIDropDownMenu_AddButton(info, level)
-                -- Addon toggle
+                -- Open
                 info = UIDropDownMenu_CreateInfo()
-                info.text = addonDisabled and L.MENU_ADDON_OFF or L.MENU_ADDON_ON
+                info.text = L.MENU_OPEN
                 info.notCheckable = true
-                info.func = function()
-                    addonDisabled = not addonDisabled
-                    SimpleWhisper_DB.addonDisabled = addonDisabled
-                    UpdateLDBText()
-                end
+                info.func = function() ToggleMainFrame() end
                 UIDropDownMenu_AddButton(info, level)
                 -- Close
                 info = UIDropDownMenu_CreateInfo()

@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0] - 2026-04-01
+
+### Added
+- Chat priority mode toggle (preset) in options panel and right-click menu
+- Right-click menu reordered: Chat mode, Addon toggle, Options, Open, Close
+- Preset backup/restore: remembers previous settings when toggling off
+- Chat message on preset toggle
+
+### Changed
+- Options layout: Delete All and Reset buttons on single row
+- Aligned label lengths across all languages
+
 ## [1.4.0] - 2026-04-01
 
 ### Added
