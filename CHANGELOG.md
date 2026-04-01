@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.5] - 2026-04-01
+
+### Fixed
+- Addon on/off toggle state now persists across character logins
+- Added missing default initializations for soundChoice, nameListHidden, dividerX
+- Reset now properly restores soundChoice and addon state
+
 ## [1.3.4] - 2026-03-28
 
 ### Added

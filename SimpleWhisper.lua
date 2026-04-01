@@ -1618,6 +1618,7 @@ local function CreateMainFrame()
         end
         btn:SetScript("OnClick", function()
             addonDisabled = (i == 2)
+            SimpleWhisper_DB.addonDisabled = addonDisabled
             UpdateAddonStateBtns()
         end)
         addonStateBtns[i] = btn
@@ -1663,9 +1664,12 @@ local function CreateMainFrame()
             SimpleWhisper_DB.windowPos = { point = "CENTER", x = 0, y = 0 }
             SimpleWhisper_DB.windowSize = nil
             SimpleWhisper_DB.dividerX = 100
+            SimpleWhisper_DB.soundChoice = 1
+            SimpleWhisper_DB.addonDisabled = false
 
             -- UI 반영
             soundCheck:SetChecked(true)
+            UpdateSoundBtns()
             SimpleWhisper_DB.showTime = false
             autoOpenCheck:SetChecked(true)
             UpdateCombatBtns()
@@ -2444,6 +2448,19 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         if SimpleWhisper_DB.toolbarHidden == nil then
             SimpleWhisper_DB.toolbarHidden = false
         end
+        if SimpleWhisper_DB.nameListHidden == nil then
+            SimpleWhisper_DB.nameListHidden = false
+        end
+        if SimpleWhisper_DB.soundChoice == nil then
+            SimpleWhisper_DB.soundChoice = 1
+        end
+        if SimpleWhisper_DB.dividerX == nil then
+            SimpleWhisper_DB.dividerX = 100
+        end
+
+        -- 애드온 비활성화 상태 복원
+        addonDisabled = SimpleWhisper_DB.addonDisabled or false
+
         if not SimpleWhisper_DB.windowPos then
             SimpleWhisper_DB.windowPos = { point = "CENTER", x = 0, y = 0 }
         end
