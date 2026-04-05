@@ -1,6 +1,52 @@
 # Changelog
 
-## [1.5.1] - 2026-04-01
+## SimpleWhisper [1.5.2] - 2026-04-05
+
+### Added
+- Friend online/offline notifications in conversation (ERR_FRIEND_ONLINE_SS, ERR_FRIEND_OFFLINE_S)
+- BNet friend online/offline notifications in conversation (CHAT_MSG_BN_INLINE_TOAST_ALERT)
+- Uses WoW global strings (BN_TOAST_ONLINE/OFFLINE) for auto-localization
+
+### Changed
+- AFK/DND auto-replies now always show in default chat frame regardless of hideFromChat setting
+
+## SimpleRepu [2.0.0] - 2026-04-02
+
+### Added
+- Custom popup frame with progress bars (replaces GameTooltip-based popup)
+- Session tracking — shows reputation gained/lost since login per faction
+- Collapsible category headers (Dungeon / Shattrath / Raid)
+- Turn-in item data for Aldor and Scryers with source descriptions
+- Sub-tooltip on broker hover — mouse over a faction row to see dungeon/item details
+- Sticky tooltip — broker tooltip stays visible when moving mouse onto it
+- Settings menu (right-click popup or minimap) — number format, bars, session, dungeons toggle
+- Slash commands: `/sr` (toggle), `/sr reset` (session reset), `/sr config` (settings)
+- Real-time updates via UPDATE_FACTION event
+
+### Changed
+- Standing labels now auto-localized via FACTION_STANDING_LABEL (removed manual translation table)
+- Standing colors improved — distinct colors for each level (Friendly/Honored/Revered/Exalted)
+- Number format options: percent, value, or need
+- Factions grouped by category with collapsible headers
+- Minimap tooltip simplified to title only
+
+## SimpleRepu [1.0.0] - 2026-04-01
+
+### Added
+- Initial release — TBC reputation guide with minimap button and data broker support
+- 11 TBC factions: 6 dungeon, 2 Shattrath (Aldor/Scryers), 3 raid
+- Faction names from Blizzard API (auto-localized), dungeon names in English/Korean
+- Reputation standing with color coding and progress (current/max)
+- Related dungeons shown per faction (raids in red, dungeons in grey)
+- Alliance/Horde faction filtering
+- Self-drawn minimap button (no LibDBIcon dependency)
+- Draggable popup window with position memory
+- LDB data broker integration
+- Mouseover tooltip on minimap button and broker
+
+---
+
+## SimpleWhisper [1.5.1] - 2026-04-01
 
 ### Fixed
 - Version display showing old version (1.3.4) on non-retail clients — all flavor TOC files now updated together

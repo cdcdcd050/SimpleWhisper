@@ -1,10 +1,10 @@
-## Interface: 38000
+## Interface: 50503
 ## Title: SimpleWhisper
 ## Notes: Simple whisper messenger
 ## Title-koKR: SimpleWhisper (귓속말)
 ## Notes-koKR: 간단한 귓속말 메신저
 ## Author: CH00
-## Version: 1.5.1
+## Version: 1.5.2
 ## SavedVariablesPerCharacter: SimpleWhisper_DB
 ## OptionalDeps: Arcana
 

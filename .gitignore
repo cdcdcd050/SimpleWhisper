@@ -7,3 +7,6 @@ Desktop.ini
 *.swp
 *.swo
 *~
+
+# Release artifacts
+*.zip

@@ -2544,6 +2544,7 @@ eventFrame:RegisterEvent("CHAT_MSG_BN_WHISPER_INFORM")
 eventFrame:RegisterEvent("CHAT_MSG_SYSTEM")
 eventFrame:RegisterEvent("CHAT_MSG_AFK")
 eventFrame:RegisterEvent("CHAT_MSG_DND")
+eventFrame:RegisterEvent("CHAT_MSG_BN_INLINE_TOAST_ALERT")
 eventFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
 
 eventFrame:SetScript("OnEvent", function(self, event, ...)
@@ -2825,8 +2826,6 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         ChatFrame_AddMessageEventFilter("CHAT_MSG_WHISPER_INFORM", WhisperFilter)
         ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER", WhisperFilter)
         ChatFrame_AddMessageEventFilter("CHAT_MSG_BN_WHISPER_INFORM", WhisperFilter)
-        ChatFrame_AddMessageEventFilter("CHAT_MSG_AFK", WhisperFilter)
-        ChatFrame_AddMessageEventFilter("CHAT_MSG_DND", WhisperFilter)
 
         -- /who 시스템 메시지 필터: 원본 이벤트 핸들러 후킹
         for i = 1, NUM_CHAT_WINDOWS do
@@ -3299,6 +3298,54 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                         end
                     end
                     break
+                end
+            end
+        end
+
+        -- 친구 접속/종료 알림
+        local friendPatterns = {
+            { global = ERR_FRIEND_ONLINE_SS, key = "online" },
+            { global = ERR_FRIEND_OFFLINE_S, key = "offline" },
+        }
+        for _, entry in ipairs(friendPatterns) do
+            if entry.global then
+                local matchPat = "^" .. entry.global:gsub("%%s", "(.+)") .. "$"
+                local friendName = msg:match(matchPat)
+                if friendName then
+                    -- |Hplayer:이름|h[이름]|h 형태에서 이름 추출
+                    local cleanName = friendName:match("%[(.-)%]") or friendName
+                    local short = ShortName(cleanName)
+                    if conversations[short] then
+                        local sysText = short .. " " .. (entry.key == "online" and (BN_TOAST_ONLINE or "has come online.") or (BN_TOAST_OFFLINE or "has gone offline."))
+                        AddMessage(short, "sys", sysText, cleanName)
+                        if mainFrame and mainFrame:IsShown() then
+                            RefreshNameList()
+                            if short == selectedName then
+                                RefreshChatDisplay()
+                            end
+                        end
+                    end
+                    break
+                end
+            end
+        end
+
+    elseif event == "CHAT_MSG_BN_INLINE_TOAST_ALERT" then
+        local alertType = ...
+        local bnID = select(13, ...)
+        if bnID and (alertType == "FRIEND_ONLINE" or alertType == "FRIEND_OFFLINE") then
+            local displayName = ResolveBNetName(bnID)
+            if displayName then
+                local shortDisplay = displayName:match("^(.-)#") or displayName
+                if conversations[shortDisplay] then
+                    local sysText = shortDisplay .. " " .. (alertType == "FRIEND_ONLINE" and (BN_TOAST_ONLINE or "has come online.") or (BN_TOAST_OFFLINE or "has gone offline."))
+                    AddMessage(shortDisplay, "sys", sysText, displayName)
+                    if mainFrame and mainFrame:IsShown() then
+                        RefreshNameList()
+                        if shortDisplay == selectedName then
+                            RefreshChatDisplay()
+                        end
+                    end
                 end
             end
         end
