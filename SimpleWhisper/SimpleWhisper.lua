@@ -650,10 +650,57 @@ end
 ----------------------------------------------------------------------
 -- /who 조회 공통 함수
 ----------------------------------------------------------------------
+local swWhoActive = false  -- SW가 /who 조회 중인지 플래그
+local lastWhoSentTime = 0  -- 마지막 /who 전송 시각 (글로벌)
+local WHO_GLOBAL_CD = 5    -- 블리자드 /who 글로벌 쿨다운 (초)
+local whoCooldownTicker = nil  -- 쿨다운 카운트 타이머
+
+-- FriendsFrame이 열릴 때 SW /who 조회 중이면 즉시 닫기
+if FriendsFrame then
+    FriendsFrame:HookScript("OnShow", function()
+        if swWhoActive then
+            FriendsFrame:Hide()
+        end
+    end)
+end
+
+-- 글로벌 쿨다운 남은 초 계산
+local function GetWhoCooldownRemaining()
+    local elapsed = GetTime() - lastWhoSentTime
+    if elapsed >= WHO_GLOBAL_CD then return 0 end
+    return math.ceil(WHO_GLOBAL_CD - elapsed)
+end
+
+-- 쿨다운 카운트다운 UI 표시 시작 (이름 전환 시에도 남은 시간 이어서 표시)
+local function StartWhoCooldownDisplay()
+    if not mainFrame or not mainFrame.refreshBtn then return end
+    if whoCooldownTicker then whoCooldownTicker:Cancel(); whoCooldownTicker = nil end
+    local remaining = GetWhoCooldownRemaining()
+    if remaining <= 0 then
+        mainFrame.refreshBtn:Show()
+        mainFrame.refreshText:SetText(L.WHO_REFRESH)
+        mainFrame.refreshText:SetTextColor(0.5, 0.8, 0.5)
+        return
+    end
+    mainFrame.refreshBtn:Show()
+    mainFrame.refreshText:SetText("|cffaaaaaa" .. remaining .. "|r")
+    mainFrame.refreshText:SetTextColor(0.5, 0.5, 0.5)
+    whoCooldownTicker = C_Timer.NewTicker(1, function(ticker)
+        local r = GetWhoCooldownRemaining()
+        if r > 0 then
+            mainFrame.refreshText:SetText("|cffaaaaaa" .. r .. "|r")
+        else
+            ticker:Cancel()
+            whoCooldownTicker = nil
+            mainFrame.refreshText:SetText(L.WHO_REFRESH)
+            mainFrame.refreshText:SetTextColor(0.5, 0.8, 0.5)
+        end
+    end)
+end
+
 local function SendWhoQuery(charName)
     if pendingWhoName then return end
-    if mainFrame and mainFrame.whoCooldown and mainFrame.whoCooldown > 0 then return end  -- 전역 쿨타임
-    -- 누구 목록(O창)이 열려있고 강제 조회가 아니면 캐시에서 추출
+    -- 누구 목록(O창)이 열려있으면 캐시에서 추출
     if FriendsFrame and FriendsFrame:IsShown() then
         if C_FriendList and C_FriendList.GetNumWhoResults then
             local numResults = C_FriendList.GetNumWhoResults() or 0
@@ -680,10 +727,7 @@ local function SendWhoQuery(charName)
                                 end
                                 mainFrame.whoInfoText:SetText("|cff00ff00" .. display .. "|r")
                             end
-                            if mainFrame.refreshBtn then
-                                mainFrame.refreshBtn:Hide()
-                                mainFrame.whoCooldown = 0
-                            end
+                            if mainFrame.refreshBtn then mainFrame.refreshBtn:Hide() end
                         end
                         break
                     end
@@ -694,48 +738,37 @@ local function SendWhoQuery(charName)
     end
     local conv = conversations[charName]
     if not conv or conv.isBN then return end
+    -- 글로벌 쿨다운 체크
+    if GetWhoCooldownRemaining() > 0 then
+        StartWhoCooldownDisplay()
+        return
+    end
+    -- /who 전송
     whoFilterUntil = GetTime() + 7
+    lastWhoSentTime = GetTime()
     local fullName = conv.fullName or charName
     pendingWhoName = charName
-    -- 새로고침 버튼 쿨다운 시작 (2초 후부터 카운트 표시 — 즉시 응답 시 안 보임)
+    swWhoActive = true
     if mainFrame and mainFrame.refreshBtn then
         mainFrame.refreshBtn:Hide()
-        mainFrame.whoCooldown = 5
-        if mainFrame.whoCooldownTicker then mainFrame.whoCooldownTicker:Cancel() end
-        mainFrame.whoCooldownTicker = C_Timer.After(2, function()
-            if not mainFrame or mainFrame.whoCooldown <= 0 then return end
-            mainFrame.whoCooldown = 3
-            mainFrame.refreshBtn:Show()
-            mainFrame.refreshText:SetText("|cffaaaaaa3|r")
-            mainFrame.refreshText:SetTextColor(0.5, 0.5, 0.5)
-            mainFrame.whoCooldownTicker = C_Timer.NewTicker(1, function(ticker)
-                mainFrame.whoCooldown = mainFrame.whoCooldown - 1
-                if mainFrame.whoCooldown > 0 then
-                    mainFrame.refreshText:SetText("|cffaaaaaa" .. mainFrame.whoCooldown .. "|r")
-                else
-                    ticker:Cancel()
-                    mainFrame.whoCooldownTicker = nil
-                    mainFrame.refreshText:SetText(L.WHO_REFRESH)
-                    mainFrame.refreshText:SetTextColor(0.5, 0.8, 0.5)
-                end
-            end)
-        end)
     end
     if pendingWhoTimer then pendingWhoTimer:Cancel() end
     local whoTarget = charName
-    pendingWhoTimer = C_Timer.NewTimer(1, function()
+    pendingWhoTimer = C_Timer.NewTimer(5, function()
         if not pendingWhoName or pendingWhoName ~= whoTarget then
             pendingWhoTimer = nil
             return
         end
         pendingWhoName = nil
         pendingWhoTimer = nil
-        -- 누구 목록 UI 복원
+        swWhoActive = false
+        if FriendsFrame and FriendsFrame:IsShown() then FriendsFrame:Hide() end
         if C_FriendList and C_FriendList.SetWhoToUI then
             C_FriendList.SetWhoToUI(true)
         elseif SetWhoToUI then
             SetWhoToUI(1)
         end
+        StartWhoCooldownDisplay()
     end)
     -- 누구 목록 UI 표시 억제
     if C_FriendList and C_FriendList.SetWhoToUI then
@@ -967,6 +1000,8 @@ SelectConversation = function(name, noFocus)
                 mainFrame.whoInfoText:SetText("")
             end
         end
+        -- 새로고침 버튼은 SendWhoQuery가 관리 (이름 전환 시 초기화)
+        if mainFrame.refreshBtn then mainFrame.refreshBtn:Hide() end
         if not noFocus then
             mainFrame.inputBox:SetFocus()
         end
@@ -1071,23 +1106,22 @@ local function CreateMainFrame()
     refreshText:SetText("")
     refreshBtn:SetScript("OnClick", function()
         if not selectedName then return end
-        if pendingWhoName then return end  -- 조회 중이면 무시
-        if f.whoCooldown and f.whoCooldown > 0 then return end  -- 쿨다운 중이면 무시
+        if pendingWhoName then return end
+        if GetWhoCooldownRemaining() > 0 then return end
         SendWhoQuery(selectedName)
     end)
     refreshBtn:SetScript("OnEnter", function(self)
-        if f.whoCooldown and f.whoCooldown > 0 then return end
+        if GetWhoCooldownRemaining() > 0 then return end
         refreshText:SetTextColor(1, 1, 1)
     end)
     refreshBtn:SetScript("OnLeave", function(self)
-        if f.whoCooldown and f.whoCooldown > 0 then return end
+        if GetWhoCooldownRemaining() > 0 then return end
         refreshText:SetTextColor(0.5, 0.8, 0.5)
     end)
     refreshText:SetTextColor(0.5, 0.8, 0.5)
     refreshBtn:Hide()
     f.refreshBtn = refreshBtn
     f.refreshText = refreshText
-    f.whoCooldown = 0
 
     -- 햄버거 메뉴 버튼 (채팅 영역 우측 상단)
     local hamburgerBtn = CreateFrame("Button", nil, f)
@@ -2404,6 +2438,8 @@ local function CreateMainFrame()
         f.inviteBtn:Disable()
         optPanel:Hide()
         inputBox:SetText("")
+        if f.whoInfoText then f.whoInfoText:SetText("") end
+        if f.refreshBtn then f.refreshBtn:Hide() end
         memoLabel:SetText("")
         memoBox:SetText("")
         memoBox.hint:Show()
@@ -2861,79 +2897,150 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         SLASH_SIMPLEWHISPER1 = "/swsw"
         SlashCmdList["SIMPLEWHISPER"] = function(msg)
             msg = (msg or ""):trim():lower()
-            if msg == "demo" then
-                -- 샘플 데이터 추가
+            if msg == "demo1" or msg == "demo2" then
+                -- 샘플 데이터 추가 (demo1: 한글, demo2: 영어)
                 do
                     local today = date("%Y-%m-%d")
                     local yesterday = date("%Y-%m-%d", time() - 86400)
-                    conversations["Deathknight"] = {
-                        fullName = "Deathknight", class = "DEATHKNIGHT",
-                        whoLevel = 70, whoGuild = "Frozen Throne",
-                        { who = "in",  msg = "Hey, want to run ICC tonight?", time = "21:03:12", date = yesterday },
-                        { who = "out", msg = "Sure, what time?", time = "21:03:45", date = yesterday },
-                        { who = "in",  msg = "8pm server time. Bring flasks.", time = "21:04:10", date = yesterday },
-                        { who = "in",  msg = "Ready when you are.", time = "19:30:00", date = today },
-                        { who = "out", msg = "On my way!", time = "19:30:22", date = today },
-                        { who = "in",  msg = "Great, meet at the entrance.", time = "19:31:05", date = today },
-                    }
-                    conversations["Hunter"] = {
-                        fullName = "Hunter", class = "HUNTER",
-                        whoLevel = 70, whoGuild = "Frozen Throne",
-                        { who = "in",  msg = "Need help with the daily quest?", time = "14:20:00", date = today },
-                        { who = "out", msg = "Which one?", time = "14:20:30", date = today },
-                        { who = "in",  msg = "The group quest in Icecrown.", time = "14:21:15", date = today },
-                        { who = "out", msg = "On my way.", time = "14:21:40", date = today },
-                        { who = "in",  msg = "Thanks!", time = "14:22:00", date = today },
-                    }
-                    conversations["Mage"] = {
-                        fullName = "Mage", class = "MAGE",
-                        whoLevel = 70, whoGuild = "Arcane Society",
-                        { who = "in",  msg = "Can you help me with something?", time = "10:15:00", date = today },
-                        { who = "out", msg = "Of course, what do you need?", time = "10:15:30", date = today },
-                        { who = "in",  msg = "Portal to Dalaran please.", time = "10:16:00", date = today },
-                    }
-                    conversations["Shaman"] = {
-                        fullName = "Shaman", class = "SHAMAN",
-                        whoLevel = 70, whoGuild = "Arcane Society",
-                        { who = "out", msg = "Hey, are you free for arena?", time = "18:00:00", date = today },
-                        { who = "in",  msg = "Give me 10 minutes.", time = "18:05:30", date = today },
-                    }
-                    conversations["Rogue"] = {
-                        fullName = "Rogue", class = "ROGUE",
-                        whoLevel = 70,
-                        { who = "in",  msg = "Got some items you might want.", time = "22:45:00", date = yesterday },
-                        { who = "out", msg = "What kind?", time = "22:45:20", date = yesterday },
-                        { who = "in",  msg = "Meet me at the AH. Good prices.", time = "22:46:00", date = yesterday },
-                    }
-                    conversations["Paladin"] = {
-                        fullName = "Paladin", class = "PALADIN",
-                        whoLevel = 70, whoGuild = "Silver Hand",
-                        { who = "in",  msg = "LFM for heroic dungeon, need healer", time = "15:00:00", date = today },
-                        { who = "out", msg = "I can heal! Invite me", time = "15:00:30", date = today },
-                        { who = "in",  msg = "Nice, sending invite now", time = "15:01:00", date = today },
-                        { who = "out", msg = "Got it, on my way", time = "15:01:15", date = today },
-                    }
-                    conversations["Warrior"] = {
-                        fullName = "Warrior", class = "WARRIOR",
-                        whoLevel = 70, whoGuild = "Silver Hand",
-                        { who = "in",  msg = "Is the sword you listed on AH still available?", time = "17:30:00", date = today },
-                        { who = "out", msg = "Yeah, still there. How much are you offering?", time = "17:30:45", date = today },
-                        { who = "in",  msg = "500g?", time = "17:31:10", date = today },
-                        { who = "out", msg = "Haha, can't go below 800g", time = "17:31:30", date = today },
-                        { who = "in",  msg = "Ah, that's too expensive :(", time = "17:32:00", date = today },
-                    }
-                    conversations["Druid"] = {
-                        fullName = "Druid", class = "DRUID",
-                        whoLevel = 70,
-                        { who = "out", msg = "Can you teach me the resto rotation?", time = "20:10:00", date = yesterday },
-                        { who = "in",  msg = "Resto spec? Give me a sec.", time = "20:12:00", date = yesterday },
-                        { who = "in",  msg = "Rejuv > Lifebloom > Wild Growth, in that order.", time = "20:13:00", date = yesterday },
-                        { who = "out", msg = "Thank you so much!", time = "20:13:30", date = yesterday },
-                    }
-                    nameList = {"Deathknight", "Warrior", "Hunter", "Paladin", "Mage", "Druid", "Shaman", "Rogue"}
-                    unreadCounts["Deathknight"] = 1
-                    unreadCounts["Hunter"] = 2
-                    unreadCounts["Warrior"] = 3
+                    if msg == "demo1" then
+                        conversations["전사"] = {
+                            fullName = "전사", class = "WARRIOR",
+                            whoLevel = 70, whoGuild = "은빛손",
+                            { who = "in",  msg = "경매장에 올린 검 아직 있어?", time = "17:30:00", date = today },
+                            { who = "out", msg = "응 아직 있어. 얼마 줄 거야?", time = "17:30:45", date = today },
+                            { who = "in",  msg = "500골?", time = "17:31:10", date = today },
+                            { who = "out", msg = "ㅋㅋ 800골 밑으로는 안돼", time = "17:31:30", date = today },
+                            { who = "in",  msg = "에이 너무 비싸다 :(", time = "17:32:00", date = today },
+                        }
+                        conversations["죽음의기사"] = {
+                            fullName = "죽음의기사", class = "DEATHKNIGHT",
+                            whoLevel = 70, whoGuild = "얼어붙은왕좌",
+                            { who = "in",  msg = "오늘 밤 ICC 갈래?", time = "21:03:12", date = yesterday },
+                            { who = "out", msg = "ㅇㅇ 몇시?", time = "21:03:45", date = yesterday },
+                            { who = "in",  msg = "서버 시간 8시. 물약 챙겨와.", time = "21:04:10", date = yesterday },
+                            { who = "in",  msg = "준비되면 말해.", time = "19:30:00", date = today },
+                            { who = "out", msg = "가는 중!", time = "19:30:22", date = today },
+                            { who = "in",  msg = "좋아, 입구에서 보자.", time = "19:31:05", date = today },
+                        }
+                        conversations["사냥꾼"] = {
+                            fullName = "사냥꾼", class = "HUNTER",
+                            whoLevel = 70, whoGuild = "얼어붙은왕좌",
+                            { who = "in",  msg = "일퀘 도와줄까?", time = "14:20:00", date = today },
+                            { who = "out", msg = "어떤 거?", time = "14:20:30", date = today },
+                            { who = "in",  msg = "얼음왕관 그룹 퀘스트.", time = "14:21:15", date = today },
+                            { who = "out", msg = "가는 중.", time = "14:21:40", date = today },
+                            { who = "in",  msg = "고마워!", time = "14:22:00", date = today },
+                        }
+                        conversations["마법사"] = {
+                            fullName = "마법사", class = "MAGE",
+                            whoLevel = 70, whoGuild = "비전학회",
+                            { who = "in",  msg = "좀 도와줄 수 있어?", time = "10:15:00", date = today },
+                            { who = "out", msg = "당연하지, 뭐 필요해?", time = "10:15:30", date = today },
+                            { who = "in",  msg = "달라란 포탈 좀 열어줘.", time = "10:16:00", date = today },
+                        }
+                        conversations["주술사"] = {
+                            fullName = "주술사", class = "SHAMAN",
+                            whoLevel = 70, whoGuild = "비전학회",
+                            { who = "out", msg = "투기장 할 시간 돼?", time = "18:00:00", date = today },
+                            { who = "in",  msg = "10분만 기다려.", time = "18:05:30", date = today },
+                        }
+                        conversations["도적"] = {
+                            fullName = "도적", class = "ROGUE",
+                            whoLevel = 70,
+                            { who = "in",  msg = "좋은 물건 있는데 볼래?", time = "22:45:00", date = yesterday },
+                            { who = "out", msg = "어떤 건데?", time = "22:45:20", date = yesterday },
+                            { who = "in",  msg = "경매장 앞에서 만나. 싸게 줄게.", time = "22:46:00", date = yesterday },
+                        }
+                        conversations["성기사"] = {
+                            fullName = "성기사", class = "PALADIN",
+                            whoLevel = 70, whoGuild = "은빛손",
+                            { who = "in",  msg = "영던 구해 힐러 필요", time = "15:00:00", date = today },
+                            { who = "out", msg = "힐 가능! 초대해줘", time = "15:00:30", date = today },
+                            { who = "in",  msg = "좋아 초대 보낸다", time = "15:01:00", date = today },
+                            { who = "out", msg = "받았어 가는 중", time = "15:01:15", date = today },
+                        }
+                        conversations["드루이드"] = {
+                            fullName = "드루이드", class = "DRUID",
+                            whoLevel = 70,
+                            { who = "out", msg = "회복 드루 로테이션 좀 알려줘", time = "20:10:00", date = yesterday },
+                            { who = "in",  msg = "회복 특성? 잠깐만.", time = "20:12:00", date = yesterday },
+                            { who = "in",  msg = "회복 > 생명꽃 > 야생 성장 순서야.", time = "20:13:00", date = yesterday },
+                            { who = "out", msg = "고마워!", time = "20:13:30", date = yesterday },
+                        }
+                        nameList = {"죽음의기사", "전사", "사냥꾼", "성기사", "마법사", "드루이드", "주술사", "도적"}
+                        unreadCounts["죽음의기사"] = 1
+                        unreadCounts["사냥꾼"] = 2
+                        unreadCounts["전사"] = 3
+                    else
+                        conversations["Deathknight"] = {
+                            fullName = "Deathknight", class = "DEATHKNIGHT",
+                            whoLevel = 70, whoGuild = "Frozen Throne",
+                            { who = "in",  msg = "Hey, want to run ICC tonight?", time = "21:03:12", date = yesterday },
+                            { who = "out", msg = "Sure, what time?", time = "21:03:45", date = yesterday },
+                            { who = "in",  msg = "8pm server time. Bring flasks.", time = "21:04:10", date = yesterday },
+                            { who = "in",  msg = "Ready when you are.", time = "19:30:00", date = today },
+                            { who = "out", msg = "On my way!", time = "19:30:22", date = today },
+                            { who = "in",  msg = "Great, meet at the entrance.", time = "19:31:05", date = today },
+                        }
+                        conversations["Hunter"] = {
+                            fullName = "Hunter", class = "HUNTER",
+                            whoLevel = 70, whoGuild = "Frozen Throne",
+                            { who = "in",  msg = "Need help with the daily quest?", time = "14:20:00", date = today },
+                            { who = "out", msg = "Which one?", time = "14:20:30", date = today },
+                            { who = "in",  msg = "The group quest in Icecrown.", time = "14:21:15", date = today },
+                            { who = "out", msg = "On my way.", time = "14:21:40", date = today },
+                            { who = "in",  msg = "Thanks!", time = "14:22:00", date = today },
+                        }
+                        conversations["Mage"] = {
+                            fullName = "Mage", class = "MAGE",
+                            whoLevel = 70, whoGuild = "Arcane Society",
+                            { who = "in",  msg = "Can you help me with something?", time = "10:15:00", date = today },
+                            { who = "out", msg = "Of course, what do you need?", time = "10:15:30", date = today },
+                            { who = "in",  msg = "Portal to Dalaran please.", time = "10:16:00", date = today },
+                        }
+                        conversations["Shaman"] = {
+                            fullName = "Shaman", class = "SHAMAN",
+                            whoLevel = 70, whoGuild = "Arcane Society",
+                            { who = "out", msg = "Hey, are you free for arena?", time = "18:00:00", date = today },
+                            { who = "in",  msg = "Give me 10 minutes.", time = "18:05:30", date = today },
+                        }
+                        conversations["Rogue"] = {
+                            fullName = "Rogue", class = "ROGUE",
+                            whoLevel = 70,
+                            { who = "in",  msg = "Got some items you might want.", time = "22:45:00", date = yesterday },
+                            { who = "out", msg = "What kind?", time = "22:45:20", date = yesterday },
+                            { who = "in",  msg = "Meet me at the AH. Good prices.", time = "22:46:00", date = yesterday },
+                        }
+                        conversations["Paladin"] = {
+                            fullName = "Paladin", class = "PALADIN",
+                            whoLevel = 70, whoGuild = "Silver Hand",
+                            { who = "in",  msg = "LFM for heroic dungeon, need healer", time = "15:00:00", date = today },
+                            { who = "out", msg = "I can heal! Invite me", time = "15:00:30", date = today },
+                            { who = "in",  msg = "Nice, sending invite now", time = "15:01:00", date = today },
+                            { who = "out", msg = "Got it, on my way", time = "15:01:15", date = today },
+                        }
+                        conversations["Warrior"] = {
+                            fullName = "Warrior", class = "WARRIOR",
+                            whoLevel = 70, whoGuild = "Silver Hand",
+                            { who = "in",  msg = "Is the sword you listed on AH still available?", time = "17:30:00", date = today },
+                            { who = "out", msg = "Yeah, still there. How much are you offering?", time = "17:30:45", date = today },
+                            { who = "in",  msg = "500g?", time = "17:31:10", date = today },
+                            { who = "out", msg = "Haha, can't go below 800g", time = "17:31:30", date = today },
+                            { who = "in",  msg = "Ah, that's too expensive :(", time = "17:32:00", date = today },
+                        }
+                        conversations["Druid"] = {
+                            fullName = "Druid", class = "DRUID",
+                            whoLevel = 70,
+                            { who = "out", msg = "Can you teach me the resto rotation?", time = "20:10:00", date = yesterday },
+                            { who = "in",  msg = "Resto spec? Give me a sec.", time = "20:12:00", date = yesterday },
+                            { who = "in",  msg = "Rejuv > Lifebloom > Wild Growth, in that order.", time = "20:13:00", date = yesterday },
+                            { who = "out", msg = "Thank you so much!", time = "20:13:30", date = yesterday },
+                        }
+                        nameList = {"Deathknight", "Warrior", "Hunter", "Paladin", "Mage", "Druid", "Shaman", "Rogue"}
+                        unreadCounts["Deathknight"] = 1
+                        unreadCounts["Hunter"] = 2
+                        unreadCounts["Warrior"] = 3
+                    end
                     print(L.CHAT_PREFIX .. " Demo data loaded.")
                 end
                 UpdateLDBText()
@@ -3138,7 +3245,6 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
 
     elseif event == "CHAT_MSG_SYSTEM" then
         local msg = ...
-
         -- /who 결과 캡처 (RAW: |Hplayer:이름|h[이름]|h: 정보...)
         if pendingWhoName then
             local whoName, whoInfo = msg:match("|Hplayer:.-|h%[(.-)%]|h:%s*(.+)$")
@@ -3148,6 +3254,8 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                     local target = pendingWhoName
                     pendingWhoName = nil
                     if pendingWhoTimer then pendingWhoTimer:Cancel(); pendingWhoTimer = nil end
+                    swWhoActive = false
+                    if FriendsFrame and FriendsFrame:IsShown() then FriendsFrame:Hide() end
                     if C_FriendList and C_FriendList.SetWhoToUI then C_FriendList.SetWhoToUI(true) elseif SetWhoToUI then SetWhoToUI(1) end
                     -- /who 결과 파싱
                     local level = whoInfo:match(L.WHO_LEVEL_PAT)
@@ -3181,18 +3289,10 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                     if gd then
                         display = display .. " <" .. gd .. ">"
                     end
-                    -- 제목 바에 표시 + 새로고침 버튼 숨기기
+                    -- 제목 바에 표시
                     if mainFrame and target == selectedName then
                         if mainFrame.whoInfoText then
                             mainFrame.whoInfoText:SetText("|cff00ff00" .. display .. "|r")
-                        end
-                        if mainFrame.refreshBtn then
-                            mainFrame.refreshBtn:Hide()
-                            mainFrame.whoCooldown = 0
-                            if mainFrame.whoCooldownTicker then
-                                mainFrame.whoCooldownTicker:Cancel()
-                                mainFrame.whoCooldownTicker = nil
-                            end
                         end
                     end
                     return
@@ -3203,6 +3303,8 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                 local target = pendingWhoName
                 pendingWhoName = nil
                 if pendingWhoTimer then pendingWhoTimer:Cancel(); pendingWhoTimer = nil end
+                swWhoActive = false
+                if FriendsFrame and FriendsFrame:IsShown() then FriendsFrame:Hide() end
                 if C_FriendList and C_FriendList.SetWhoToUI then C_FriendList.SetWhoToUI(true) elseif SetWhoToUI then SetWhoToUI(1) end
                 if (whoCount and tonumber(whoCount) == 0) or msg:match(L.WHO_NOTFOUND_PAT) then
                     if mainFrame and target == selectedName then
@@ -3216,14 +3318,6 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
                                 display = display .. " <" .. conv.whoGuild .. ">"
                             end
                             mainFrame.whoInfoText:SetText("|cffff4444" .. L.WHO_OFFLINE .. " — " .. display .. "|r")
-                        end
-                        if mainFrame.refreshBtn then
-                            mainFrame.refreshBtn:Hide()
-                            mainFrame.whoCooldown = 0
-                            if mainFrame.whoCooldownTicker then
-                                mainFrame.whoCooldownTicker:Cancel()
-                                mainFrame.whoCooldownTicker = nil
-                            end
                         end
                     end
                 end
