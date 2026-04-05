@@ -1,9 +1,6 @@
 package-as: SimpleWhisper
 manual-changelog: CHANGELOG.md
 
-move-folders:
-  SimpleWhisper: SimpleWhisper
-
 ignore:
   - CLAUDE.md
   - README.md
