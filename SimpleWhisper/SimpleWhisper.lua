@@ -3138,6 +3138,12 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
             -- autoOpen 꺼져있어도 소리는 재생
             PlayWhisperSound(name)
         end
+        -- 기본 채팅창에서 읽음 처리: 귓속말이 채팅창에 표시되고 SW 창이 닫혀있으면 읽은 것으로 간주
+        if wasHidden and not SimpleWhisper_DB.hideFromChat then
+            unreadCounts[name] = 0
+            BumpName(name)
+            UpdateLDBText()
+        end
         -- 창이 이미 열려 있었을 때만 대화 선택/갱신 (소리 없음)
         if not wasHidden and mainFrame and mainFrame:IsShown() then
             if not selectedName then
@@ -3166,6 +3172,13 @@ eventFrame:SetScript("OnEvent", function(self, event, ...)
         end
         AddMessage(name, "out", text, fullName)
         PlayWhisperSound(name, true)
+        -- 기본 채팅창에서 발신 시 읽음 처리 + 맨 위로 이동
+        local wasHidden = not mainFrame or not mainFrame:IsShown()
+        if wasHidden and not SimpleWhisper_DB.hideFromChat then
+            unreadCounts[name] = 0
+            BumpName(name)
+            UpdateLDBText()
+        end
 
         if mainFrame and mainFrame:IsShown() then
             RefreshNameList()
