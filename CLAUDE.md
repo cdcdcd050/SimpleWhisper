@@ -61,3 +61,20 @@
 | SimpleRepItem | `bcc` | `SimpleRepItem_TBC.toc` (20505) | BCC 전용 |
 
 > **CurseForge 업로드 시 게임 버전은 TOC의 `## Interface:` 값에 의해 결정된다.** 새 클라이언트 지원 추가 시 해당 TOC 파일 생성 + release.yml의 `-g` 플래그 추가 필요.
+
+### 릴리즈 아티팩트에서 내부 파일 제외
+애드온 사용자에게 불필요한 파일(`CLAUDE.md`, `doc/`, `.github/` 등)을 배포물에서 빼려면 **두 경로 모두** 차단해야 한다:
+
+1. **배포 zip** (워크플로우가 빌드): `release.yml`의 `rsync --exclude` 또는 `.pkgmeta`의 `ignore` 목록
+2. **GitHub 자동 생성 "Source code" zip/tar.gz**: 레포 루트 `.gitattributes`의 `export-ignore` 속성
+   ```
+   .github export-ignore
+   .gitattributes export-ignore
+   .pkgmeta export-ignore
+   CLAUDE.md export-ignore
+   doc export-ignore
+   ```
+   `.gitattributes`는 다음 태그부터 적용된다. 이미 생성된 태그의 아카이브는 수정 불가.
+
+### 수동 릴리즈 주의
+태그 푸시 전에 `gh release create`를 먼저 호출하지 말 것. 워크플로우의 `gh release create`가 "release already exists" 오류로 실패한다. 태그만 푸시하면 워크플로우가 zip 포함한 릴리즈를 생성한다.
